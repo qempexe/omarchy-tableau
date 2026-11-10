@@ -64,6 +64,11 @@ local GALLERY_TOP_LAYOUT = "lua:tableau-gallery-top"
 local STAGE_ICON = "\u{F1486}"
 local state_dir = (os.getenv("XDG_STATE_HOME") or (os.getenv("HOME") .. "/.local/state")) .. "/hypr-tableau"
 local error_file = state_dir .. "/errors.log"
+local ERROR_LOG_MAX = 256 * 1024
+
+local function shell_quote(value)
+  return "'" .. tostring(value):gsub("'", "'\\''") .. "'"
+end
 
 -- Hyprland shows callback errors only in its error bar, and every config
 -- reload clears that. Keep a copy, with a traceback, that survives.
@@ -73,7 +78,15 @@ local function guarded(fn)
     if ok then
       return err
     end
-    os.execute("mkdir -p '" .. state_dir .. "'")
+    os.execute("mkdir -p " .. shell_quote(state_dir))
+    -- keep the log small: a callback that fails on every frame would fill the disk
+    local size = 0
+    local current = io.open(error_file, "r")
+    if current then
+      size = current:seek("end") or 0
+      current:close()
+    end
+    if size > ERROR_LOG_MAX then os.rename(error_file, error_file .. ".old") end
     local file = io.open(error_file, "a")
     if file then
       file:write(os.date("%Y-%m-%d %H:%M:%S "), tostring(err), "\n\n")
@@ -225,7 +238,7 @@ do
 end
 
 local function save_center()
-  os.execute("mkdir -p '" .. state_dir .. "'")
+  os.execute("mkdir -p " .. shell_quote(state_dir))
   local file = io.open(center_file, "w")
   if not file then
     return
