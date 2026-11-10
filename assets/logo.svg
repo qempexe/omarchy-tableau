@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="40 40 432 432" width="424" height="424">
+  <title>Tableau</title>
+  <defs>
+    <mask id="cut" maskUnits="userSpaceOnUse" x="0" y="0" width="512" height="512">
+      <rect width="512" height="512" fill="#fff"/>
+      <g fill="none" stroke="#000" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="184" y="174" width="144" height="164" rx="14" stroke-width="13"/>
+        <path d="M184 210 H328" stroke-width="11"/>
+      </g>
+      <g fill="#000">
+        <rect x="130" y="196" width="38" height="52" rx="8"/>
+        <rect x="130" y="264" width="38" height="52" rx="8"/>
+        <rect x="344" y="196" width="38" height="52" rx="8"/>
+        <rect x="344" y="264" width="38" height="52" rx="8"/>
+        <circle cx="202" cy="192" r="6"/>
+        <circle cx="222" cy="192" r="6"/>
+      </g>
+    </mask>
+  </defs>
+  <g fill="none" stroke="#EADBC8" stroke-width="14" stroke-linecap="round">
+    <path d="M447.7,325.8 A204,204 0 0 1 64.3,325.8"/>
+    <path d="M64.3,186.2 A204,204 0 0 1 447.7,186.2"/>
+  </g>
+  <circle cx="256" cy="256" r="172" fill="#EADBC8" mask="url(#cut)"/>
+</svg>
