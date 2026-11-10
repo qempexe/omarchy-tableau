@@ -13,7 +13,9 @@ STATE="${XDG_STATE_HOME:-$HOME/.local/state}/hypr-tableau"
 load_tableau() {
   local out
   out=$(hyprctl eval "_G.tableau_runtime = true; dofile($(lua_quote "$DIR/tableau.lua")); dofile($(lua_quote "$ROOT/tableau.lua"))" 2>&1)
+  # warnings and notes ("warning: ...", "info: ...") mean the Lua ran; only errors count
   [[ $out == ok ]] && return 0
+  [[ -n $out ]] && ! grep -qE '^error|only supported' <<<"$out" && return 0
   [[ ${1:-} == quiet ]] && return 1   # the first try at start; the second one reports
   mkdir -p "$STATE" && printf '%s load: %s\n' "$(date '+%F %T')" "${out:0:2000}" >>"$STATE/errors.log"
   notify-send -a Tableau "Tableau's layouts didn't load" "${out:0:300}" 2>/dev/null || true
