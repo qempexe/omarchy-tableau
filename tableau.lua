@@ -69,6 +69,8 @@ local function restore_active_tableau_mode()
   if not mode then return end
   pcall(o.workspace_mode, { workspace = workspace_id, mode = mode })
   pcall(hl.exec_scheduled_prop_refresh_immediately)
+  local tableau = _G.omarchy_tableau
+  if tableau and tableau.sync_pointer_guard then pcall(tableau.sync_pointer_guard) end
 end
 
 local function schedule_restore()

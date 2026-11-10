@@ -48,7 +48,6 @@ local cfg = {
   center_step_max = 0.92,
 
   thumb_opacity = 0.72, -- thumbnails at rest; the selected or hovered one is fully opaque
-  select_border = 4, -- border (px) on thumbnails; only the selected one's is visible
   swap_flash_ms = 700, -- both windows of a swap light up this long, so it's clear which two traded places
 
   -- from settings.conf (see read_settings below)
@@ -490,6 +489,20 @@ local function show_thumbnail(target, w, h)
 end
 
 local set_no_follow_mouse
+local sync_tile_tags
+
+-- A layout run can move a window in or out of the tiles (floated, closed, carried in).
+-- Tags can't be set while a layout runs (that runs the layout again), so the outline
+-- tags are brought in line right after it.
+local tags_pending = false
+local function after_layout()
+  if tags_pending or not sync_tile_tags then return end
+  tags_pending = true
+  hl.timer(guarded(function()
+    tags_pending = false
+    sync_tile_tags()
+  end), { timeout = 1, type = "oneshot" })
+end
 
 local function recalculate(ctx, horizon)
   local area = ctx.area
@@ -571,6 +584,11 @@ local function recalculate(ctx, horizon)
 end
 
 local function register_layout(name, definition)
+  local recalculate = definition.recalculate
+  definition.recalculate = function(ctx)
+    recalculate(ctx)
+    after_layout()
+  end
   local ok, err = pcall(hl.layout.register, name, definition)
   if not ok and not tostring(err):find("already registered", 1, true) then
     error(err, 0)
@@ -1166,6 +1184,17 @@ local function set_thumb(window, is_thumb)
   end
 end
 
+-- Every tiled window on a workspace with a Tableau layout carries "tableau-tile", for
+-- the outline rule; every other window loses it. Only changes are dispatched.
+sync_tile_tags = function()
+  for _, w in ipairs(hl.get_windows()) do
+    if w.mapped and w.stable_id then
+      local want = not w.floating and is_tableau_layout(w.workspace) == true
+      if has_tag(w, "tableau-tile") ~= want then tag_window(w, "tableau-tile", want) end
+    end
+  end
+end
+
 local function update_thumbs(ws)
   local list = slots[ws.id] or {}
   for _, w in ipairs(tiled_windows(ws)) do
@@ -1194,6 +1223,7 @@ local function sync_active_pointer_guard()
   else
     for _, window in ipairs(windows) do set_thumb(window, false) end
   end
+  sync_tile_tags()
 end
 
 -- Highlighting, all done with tags and window rules: taking a tag off puts the
@@ -1211,19 +1241,56 @@ local function accent(alpha)
   return "rgba(" .. rgb .. alpha .. ")"
 end
 
-o.window({ tag = "stage-thumb" }, {
-  opacity = "1.0 " .. cfg.thumb_opacity,
-  border_size = cfg.select_border,
-  border_color = accent("ff") .. " rgba(00000000)",
-})
-o.window({ tag = "stage-hover" }, {
-  opacity = "1.0 1.0",
-  border_color = accent("ff") .. " " .. accent("99"),
-})
-o.window({ tag = "stage-swap" }, {
-  opacity = "1.0 1.0",
-  border_color = accent("ff") .. " " .. accent("ff"),
-})
+-- The theme's active border as a border_color gradient: "rgba(..) rgba(..) 45deg".
+-- The angle is always there, so whatever follows it is read as the inactive colors.
+local function active_gradient()
+  local ok, opt = pcall(hl.get_config, "general.col.active_border")
+  local parts = {}
+  if ok and type(opt) == "table" and type(opt.colors) == "table" then
+    for _, color in ipairs(opt.colors) do
+      local alpha, rgb = nil, nil
+      if type(color) == "string" then alpha, rgb = color:match("^0[xX](%x%x)(%x%x%x%x%x%x)$") end
+      if rgb then parts[#parts + 1] = "rgba(" .. rgb .. alpha .. ")" end
+      if #parts == 10 then break end
+    end
+  end
+  if #parts == 0 then return accent("ff") .. " 0deg" end
+  local angle = ok and type(opt) == "table" and tonumber(opt.angle) or 0
+  parts[#parts + 1] = string.format("%ddeg", math.floor(angle + 0.5))
+  return table.concat(parts, " ")
+end
+
+-- Every window of a Tableau layout carries the "tableau-tile" tag and gets the same
+-- outline, focused or not; thumbnails, hovered ones and the two of a swap get theirs on
+-- top. The rules are named, so new settings replace them without a config reload: the
+-- old set is switched off and a fresh one is added after it, in the same order.
+local rule_names = {}
+local rule_generation = 0
+local function apply_rules()
+  for _, name in ipairs(rule_names) do pcall(hl.window_rule, { name = name, enabled = false }) end
+  rule_names = {}
+  rule_generation = rule_generation + 1
+  local function rule(kind, props)
+    props.name = "tableau-" .. kind .. "-" .. rule_generation
+    rule_names[#rule_names + 1] = props.name
+    local ok, err = pcall(hl.window_rule, props)
+    if not ok then error(err, 0) end
+  end
+  local active = active_gradient()
+  local tile = { match = { tag = "tableau-tile" }, border_size = cfg.outline }
+  if cfg.others == "same" then
+    tile.border_color = active .. " " .. active
+  elseif cfg.others == "hidden" then
+    tile.border_color = active .. " rgba(00000000) 0deg"
+  end
+  rule("tile", tile)
+  rule("thumb", { match = { tag = "stage-thumb" }, opacity = string.format("1.0 %.2f", cfg.thumb_opacity) })
+  rule("hover", { match = { tag = "stage-hover" }, opacity = "1.0 1.0",
+    border_color = accent("ff") .. " " .. accent("99") })
+  rule("swap", { match = { tag = "stage-swap" }, opacity = "1.0 1.0",
+    border_color = accent("ff") .. " " .. accent("ff") })
+end
+apply_rules()
 
 -- Flash both windows of a swap. A window flashed again before its last flash
 -- ended keeps the newer one; a window that closed meanwhile is skipped.
@@ -1370,6 +1437,14 @@ function M.clear_pointer_guard(workspace_id)
 end
 
 M.sync_pointer_guard = sync_active_pointer_guard
+
+-- The panel wrote settings.conf: read it, swap the window rules and lay out again.
+function M.reload_settings()
+  read_settings()
+  apply_rules()
+  sync_tile_tags()
+  if tableau_focused() then hl.dispatch(hl.dsp.layout("refresh")) end
+end
 
 -- Swap the focused thumbnail into the middle.
 function M.promote()
