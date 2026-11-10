@@ -891,12 +891,51 @@ local function place_grid(ordered, area, preferred_aspect, gap)
   end
 end
 
+-- Lay out live miniatures that all share one shape (`aspect`, width over height) in
+-- a grid as large as fits `area`, the last row centred. Every tile is a true
+-- miniature of a window of that shape, so nothing is drawn squashed.
+local function place_miniatures(targets, area, aspect, gap)
+  local n = #targets
+  if n == 0 then return end
+  local best
+  for cols = 1, n do
+    local rows = math.ceil(n / cols)
+    local gx = math.min(gap, area.w / math.max(cols * 4, 1))
+    local gy = math.min(gap, area.h / math.max(rows * 4, 1))
+    local w = math.min((area.w - gx * (cols - 1)) / cols, (area.h - gy * (rows - 1)) / rows * aspect)
+    if not best or w > best.w + 0.01 then best = { w = w, cols = cols, rows = rows, gx = gx, gy = gy } end
+  end
+  local w, h = best.w, best.w / aspect
+  local grid_h = best.rows * h + (best.rows - 1) * best.gy
+  local y0 = area.y + (area.h - grid_h) / 2
+  for i, target in ipairs(targets) do
+    local row = math.floor((i - 1) / best.cols)
+    local col = (i - 1) % best.cols
+    local in_row = math.min(best.cols, n - row * best.cols)
+    local row_w = in_row * w + (in_row - 1) * best.gx
+    target:place({
+      x = area.x + (area.w - row_w) / 2 + col * (w + best.gx),
+      y = y0 + row * (h + best.gy), w = w, h = h,
+    })
+  end
+end
+
+-- The size a window shown as a miniature believes it has: the same as in Portrait
+-- (side galleries) or Landscape (top and bottom galleries), at their default size, so
+-- a miniature looks the same however large the main pane is made.
+local function normal_size(area, horizontal)
+  if horizontal then
+    return area.w * default_share(area, false), area.h
+  end
+  return area.w, area.h * math.min(0.76, math.max(cfg.center_min, (area.w / area.h) / 2.1))
+end
+
 local function gallery_layout(ctx, edge)
   local area = ctx.area
   local ordered, windows = ordered_targets(ctx)
   local count = #ordered
   if count == 0 then return end
-  if count == 1 then ordered[1]:place(area); return end
+  if count == 1 then show_full(ordered[1]); ordered[1]:place(area); return end
   local ws_id = windows[1] and windows[1].workspace.id
   local horizontal = edge == "left" or edge == "right"
   local axis = horizontal and area or { w = area.h, h = area.w }
@@ -925,8 +964,9 @@ local function gallery_layout(ctx, edge)
   end
   show_full(main)
   main:place(main_area)
-  for _, target in ipairs(side) do show_thumbnail(target, main_area.w, main_area.h) end
-  place_grid(side, side_area, 1.0, 8)
+  local full_w, full_h = normal_size(area, horizontal)
+  for _, target in ipairs(side) do show_thumbnail(target, full_w, full_h) end
+  place_miniatures(side, side_area, full_w / full_h, 8)
 end
 
 local function spread_layout(ctx)
