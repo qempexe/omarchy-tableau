@@ -1,36 +1,30 @@
--- Stage: a Stage Manager-style layout for Hyprland.
+-- Tableau's layouts for Hyprland, registered as Lua layouts and chosen per workspace
+-- through Omarchy's workspace modes.
 --
--- The window you're using sits alone in the middle of the screen. Every
--- other window on the workspace becomes a thumbnail in columns on the left
--- and right. Thumbnails are as big as the space allows: a few windows get one
--- column of large thumbnails, and more columns appear only when needed.
---
--- Thumbnails keep their spot. Bringing a window into the middle only swaps
--- it with the current middle window; nothing else moves.
+-- Portrait, Landscape, Centerpiece and the four Galleries keep the window you use
+-- large and show every other window as a live miniature around it. Thumbnails keep
+-- their spot: bringing a window forward only swaps it with the current one.
 --   click a thumbnail      swap it into the middle
 --   ALT + TAB              hold ALT, tap TAB to move the highlight across the
---   ALT + SHIFT + TAB      thumbnails (left side, then right); release ALT
---                          to open it
+--   ALT + SHIFT + TAB      thumbnails; release ALT to open it
 --   SUPER + arrows         move focus without moving anything (you can type
 --                          into a focused thumbnail)
+--   SUPER + SHIFT + arrows swap the focused window with its neighbour
 --   SUPER + Z              swap the focused thumbnail into the middle
---   SUPER + - / =          widen / narrow the middle window (ALT: a little,
---                          CTRL: a lot); thumbnails resize to use the
---                          space that's left
+--   SUPER + - / =          grow / shrink the main window, like Omarchy's expand
+--                          and shrink keys (ALT: a little, CTRL: a lot); the
+--                          others use the space that's left
 --
--- Tableau's cycle uses Omarchy's workspace-mode API and persistent mode files.
+-- The Diptychs, Triptych and Bento give the focused window the main pane. Mosaic,
+-- Spread, Strip, Column and Spiral share the screen, and the resize keys give the
+-- focused window more or less of it.
 --
--- Inspired by Scott Jenson's talk "Are we really going to use the same Desktop
--- UX forever?" (https://www.youtube.com/watch?v=V7AfAcQwLW0).
+-- Portrait and Landscape adapt the Stage layout from
+-- https://github.com/Sulejman/omarchy-stage (MIT), inspired by Scott Jenson's talk
+-- "Are we really going to use the same Desktop UX forever?".
 --
--- From https://github.com/Sulejman/omarchy-stage. As an Omarchy plugin it is
--- loaded at runtime and removed with `omarchy plugin remove
--- io.github.sulejman.stage`. A manual install (install.sh) is removed with
--- uninstall.sh, or by hand:
---   1. delete the `require("hypr.stage")` line in ~/.config/hypr/hyprland.lua
---   2. rm ~/.config/hypr/stage.lua
---   3. rm -r ~/.local/state/hypr-tableau ~/.config/hypr/stagethumbs
---   4. hyprctl plugin unload ~/.config/hypr/stagethumbs/stagethumbs.so (or log out)
+-- Settings come from ~/.local/state/hypr-tableau/settings.conf, which the Tableau
+-- panel writes: plain key=value lines, read here without running anything.
 
 -- Loaded once per Hyprland Lua state. A config reload starts a fresh state,
 -- so this only stops a second copy (e.g. both the Omarchy plugin and a manual

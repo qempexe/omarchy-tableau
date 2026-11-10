@@ -1,5 +1,5 @@
--- Use Omarchy's own per-workspace mode mechanism, as Stage does. Tableau's sixteen
--- Lua layouts are modes alongside Dwindle, Scrolling, and Floating.
+-- Tableau's layouts are Omarchy workspace modes, next to Dwindle, Scrolling and
+-- Floating: chosen per workspace, saved by Omarchy and restored at login.
 local hl = _G.hl
 local state_home = os.getenv("XDG_STATE_HOME") or (os.getenv("HOME") .. "/.local/state")
 local modes_dir = state_home .. "/omarchy/workspace-layouts"
