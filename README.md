@@ -70,7 +70,8 @@ outline (its gradient included), your theme's inactive border, or no outline at 
 
 **Miniatures fade to** sets how see-through the live miniatures are until you point at
 one, and **Light up a swap** flashes both windows when two trade places. The **Sizes**
-set the main pane of the Diptychs and Bento, the middle of Triptych, and the gap in
+set the main pane of the Diptychs and Bento, the middle of Triptych, how much one
+press of the resize keys changes, and the gap in
 Spread.
 
 <br clear="right">
@@ -110,14 +111,14 @@ still work, with the other windows resized into their spots.
 | Keys | Result |
 | --- | --- |
 | Super + L | the next layout in your cycle |
-| Super + Shift + L | the previous one |
+| Super + Shift + L or Super + Alt + L | the previous one |
 | Super + Ctrl + L, then 1 – 9 | Dwindle, Scrolling, Floating, Portrait, Landscape, Centerpiece, Diptych Left, Diptych Right, Mosaic |
 | Super + Ctrl + L, 0, then 1 – 0, -, = | Strip, Column, Spiral, Gallery Right, Gallery Bottom, Gallery Left, Gallery Top, Spread, Diptych Top, Diptych Bottom, Triptych, Bento |
 | Super + arrows | focus the nearest window that way |
 | Super + Shift + arrows | swap with the nearest window that way |
 | Alt + Tab | step through the windows; let go of Alt to bring that one forward |
 | Super + Z | bring the focused window forward |
-| Super + - and = | grow or shrink the main window, or the focused tile (Alt: a little, Ctrl: a lot) |
+| Super + - and = | grow or shrink the main window, or the focused tile, a small step at a time; hold to keep going (Alt: finer, Ctrl: coarser) |
 
 On a Tableau layout, Super + arrows only moves the focus, so you can type into a
 miniature without bringing it forward. A click brings it forward.
