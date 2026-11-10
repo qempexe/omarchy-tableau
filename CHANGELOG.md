@@ -4,6 +4,15 @@ All notable changes to Tableau. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [1.1.1] - 2026-11-10
+
+### Fixed
+
+- The bar button and the panel showed Portrait for every Tableau layout, and
+  **Super + L** went on from Portrait instead of the layout on screen. `hyprctl`
+  gives every Lua layout the name of the first one registered, so the layouts are now
+  read from Hyprland's Lua, and from the saved layout when that doesn't answer.
+
 ## [1.1.0] - 2026-11-10
 
 ### Added
@@ -60,5 +69,6 @@ All notable changes to Tableau. The format follows
   set <layout> | status | refresh`.
 - A logo, light and dark, and an About tab.
 
+[1.1.1]: https://github.com/qempexe/omarchy-tableau/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/qempexe/omarchy-tableau/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/qempexe/omarchy-tableau/releases/tag/v1.0.0
