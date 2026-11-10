@@ -1391,7 +1391,10 @@ function M.move(dir)
       elseif dir == "u" then
         if from and from > cols then to = from - cols end
       elseif from then
-        to = math.min(count, from + cols)
+        -- down: the tile below, or the last one when the row below is short
+        local row_end = math.ceil(from / cols) * cols
+        if from + cols <= count then to = from + cols
+        elseif count > row_end then to = count end
       end
       if to then
         list[from], list[to] = list[to], list[from]
