@@ -6,8 +6,12 @@ local modes_dir = state_home .. "/omarchy/workspace-layouts"
 local source = debug.getinfo(1, "S").source:gsub("^@", "")
 local plugin_dir = source:match("^(.*)/") or "."
 
+local function shell_quote(value)
+  return "'" .. tostring(value):gsub("'", "'\\''") .. "'"
+end
+
 local function choose(layout)
-  hl.exec_cmd("python3 " .. o.shell_quote(plugin_dir .. "/cycle_layout.py") .. " " .. o.shell_quote(layout))
+  hl.exec_cmd("python3 " .. shell_quote(plugin_dir .. "/cycle_layout.py") .. " " .. shell_quote(layout))
 end
 
 local function saved_mode(path)
@@ -39,7 +43,7 @@ end
 -- workspace rules. Replay every saved mode after Tableau has registered its Lua
 -- layouts so the persisted Omarchy mode remains the final rule.
 do
-  local pipe = io.popen("find " .. o.shell_quote(modes_dir) .. " -maxdepth 1 -type f -name '*.lua' -print 2>/dev/null")
+  local pipe = io.popen("find " .. shell_quote(modes_dir) .. " -maxdepth 1 -type f -name '*.lua' -print 2>/dev/null")
   if pipe then
     for path in pipe:lines() do
       local mode = saved_mode(path)
