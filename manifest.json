@@ -5,12 +5,12 @@
   "version": "0.1.0",
   "author": "qempexe",
   "license": "MIT",
-  "description": "Sixteen composed window layouts, including four Gallery orientations and four Diptych orientations.",
+  "description": "Eighteen composed window layouts, including four Gallery orientations, four Diptych orientations, Triptych and Bento.",
   "kinds": [
     "service"
   ],
   "keepLoaded": true,
   "entryPoints": {
-    "service": "Service.qml"
+    "service": "qml/Service.qml"
   }
 }
