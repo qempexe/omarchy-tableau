@@ -5,12 +5,29 @@
   "version": "0.1.0",
   "author": "qempexe",
   "license": "MIT",
-  "description": "Eighteen composed window layouts, including four Gallery orientations, four Diptych orientations, Triptych and Bento.",
+  "description": "Eighteen window layouts in Omarchy's layout cycle: live miniatures around the window you use in Portrait, Landscape, Centerpiece and four Galleries, Diptychs, Triptych, Bento, Mosaic, Strip, Column, Spiral and Spread. A bar button and panel to pick layouts per workspace, set the window outline and choose what Super + L goes through.",
   "kinds": [
-    "service"
+    "service",
+    "bar-widget"
   ],
   "keepLoaded": true,
   "entryPoints": {
-    "service": "qml/Service.qml"
+    "service": "qml/Service.qml",
+    "barWidget": "qml/BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Tableau",
+    "category": "Desktop",
+    "description": "The focused workspace's layout, and the panel to pick layouts and set the outline",
+    "aliases": [
+      "layout",
+      "layouts",
+      "tiling",
+      "workspace layout",
+      "portrait",
+      "gallery"
+    ],
+    "allowMultiple": false,
+    "defaultSection": "right"
   }
 }

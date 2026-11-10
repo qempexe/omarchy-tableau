@@ -1,0 +1,245 @@
+import QtQuick
+import "../js/Util.js" as Util
+import "../js/Schema.js" as Schema
+import Quickshell
+import qs.Commons
+
+// The docked panel: it hangs off the bar, right where the button is.
+// BarWidget only uses: opened, open(), close(), closeForPopoutSwitch()
+Item {
+    id: root
+
+    visible: false
+
+    property var bar: null
+    property var anchorItem: null
+    property var hostWidget: null
+    property var svc: null         // the service, injected by BarWidget.qml
+    readonly property var ui: svc ? svc.ui : null
+
+    readonly property bool opened: popup.visible
+    readonly property bool popoutSwitchClosing: false
+    // true for a moment after a click outside closed us, so that same click
+    // on the bar button doesn't reopen it
+    property bool justClosedByGrab: false
+
+    function open() {
+        if (popup.visible) return
+        root.locate()
+        popup.visible = true
+    }
+    function close() { popup.visible = false }
+    function toggle() { if (popup.visible) root.close(); else root.open() }
+    function closeForPopoutSwitch() { root.close() }
+
+    // Alt+Left / Alt+Right walk through the settings groups
+    function stepTab(d) {
+        if (!root.ui) return
+        const n = Schema.groups.length
+        root.ui.settingsGroup = (root.ui.settingsGroup + d + n) % n
+    }
+
+    // placement. done right before opening because the bar position isn't known at load.
+    // anchored to the bar window's outer edge, not the widget (that one sits in the padding)
+    readonly property bool vertical: {
+        const b = root.bar
+        if (!b) return false
+        try {
+            if (b.vertical === true || b.isVertical === true) return true
+            if (b.orientation !== undefined && b.orientation === Qt.Vertical) return true
+        } catch (e) { }
+        return false
+    }
+    property bool barAtTop: true              // horizontal bar: top edge (else bottom)
+    property bool barAtLeft: true             // vertical bar: left edge (else right)
+    property bool useRect: false              // anchor to the bar window's edge
+    property real rectX: 0
+    property real rectY: 0
+    property real rectW: 1
+    property real rectH: 1
+    property real extra: 0                    // extra clearance when only the widget is known
+    property real maxHeight: 620
+    readonly property int gap: 0              // free space between the bar and the panel (0 = flush)
+    readonly property real padTop: (!vertical && barAtTop) ? gap + extra : 0
+    readonly property real padBottom: (!vertical && !barAtTop) ? gap + extra : 0
+    readonly property real padLeft: (vertical && barAtLeft) ? gap + extra : 0
+    readonly property real padRight: (vertical && !barAtLeft) ? gap + extra : 0
+
+    function sideFromText(v) {
+        const t = Util.toText(v).toLowerCase()
+        if (t.indexOf("top") >= 0) return "top"
+        if (t.indexOf("bottom") >= 0) return "bottom"
+        if (t.indexOf("left") >= 0) return "left"
+        if (t.indexOf("right") >= 0) return "right"
+        return ""
+    }
+
+    function locate() {
+        const item = root.anchorItem
+        if (!item) return
+        let side = ""
+        let qsWin = null
+        let win = null
+
+        // 1. ask the bar window which edge it's on
+        try { qsWin = item.QsWindow.window } catch (e0) { qsWin = null }
+        try { win = qsWin ? qsWin : item.Window.window } catch (e1) { win = null }
+        let scr = null
+        try { scr = win && win.screen ? win.screen : null } catch (e4) { scr = null }
+        const sw = scr && scr.width > 0 ? scr.width : 1920
+        const sh = scr && scr.height > 0 ? scr.height : 1080
+        try {
+            const an = win ? win.anchors : null
+            if (an) {
+                if (root.vertical) {
+                    if (an.left && !an.right) side = "left"
+                    else if (an.right && !an.left) side = "right"
+                } else {
+                    if (an.top && !an.bottom) side = "top"
+                    else if (an.bottom && !an.top) side = "bottom"
+                }
+            }
+        } catch (e2) { side = "" }
+
+        // 2. the bar object might just say it
+        if (side === "" && root.bar) {
+            const names = ["position", "barPosition", "edge", "side", "location", "placement", "barSide"]
+            for (let i = 0; i < names.length && side === ""; i++) {
+                let got = ""
+                try { got = root.sideFromText(root.bar[names[i]]) } catch (e3) { got = "" }
+                if ((root.vertical && (got === "left" || got === "right"))
+                        || (!root.vertical && (got === "top" || got === "bottom")))
+                    side = got
+            }
+        }
+
+        // 3. fallback: which half of the screen we're in
+        const pos = item.mapToItem(null, 0, 0)
+        if (side === "") {
+            if (root.vertical) side = pos.x < sw / 2 ? "left" : "right"
+            else side = pos.y < sh / 2 ? "top" : "bottom"
+        }
+        root.barAtTop = side === "top"
+        root.barAtLeft = side === "left"
+
+        // anchor rect on the bar's outer edge (window coordinates)
+        const ww = (win && win.width > 0) ? win.width : 0
+        const wh = (win && win.height > 0) ? win.height : 0
+        const small = root.vertical ? (ww > 0 && ww < sw * 0.5) : (wh > 0 && wh < sh * 0.5)
+        // Omarchy 4.5 and later: the bar window spans its screen and the bar is a strip
+        // at its edge, so the panel hangs off the outer edge of that strip
+        const spans = !!qsWin && !small && (root.vertical ? ww >= sw * 0.5 : wh >= sh * 0.5)
+        const bs = root.bar && typeof root.bar.barSize === "number" && root.bar.barSize > 0 ? root.bar.barSize : 0
+        let thick = small ? (root.vertical ? ww : wh) : 40
+        root.useRect = !!qsWin && (small || spans)
+        if (root.useRect) {
+            if (root.vertical) {
+                // the strip ends past the widget, and is at least as thick as the bar
+                const t = small ? ww : Math.max(bs, side === "left" ? pos.x + item.width : ww - pos.x)
+                root.rectW = 1
+                root.rectH = Math.max(1, item.height)
+                root.rectY = pos.y
+                root.rectX = side === "left" ? Math.max(0, t - 1) : Math.max(0, ww - t)
+                thick = t
+            } else {
+                const t = small ? wh : Math.max(bs, side === "top" ? pos.y + item.height : wh - pos.y)
+                root.rectW = Math.max(1, item.width)
+                root.rectH = 1
+                root.rectX = pos.x
+                root.rectY = side === "top" ? Math.max(0, t - 1) : Math.max(0, wh - t)
+                thick = t
+            }
+            root.extra = 0
+        } else {
+            root.extra = 6                    // only the widget is known: allow a little for bar padding
+        }
+
+        // Set the anchor here rather than with bindings: Quickshell unsets the anchor's
+        // item whenever its window is written, and the other way round, so two bindings
+        // can undo each other and leave the panel with nothing to hang off.
+        if (root.useRect) popup.anchor.window = qsWin
+        else popup.anchor.item = item
+
+        // max height that still fits under/over the bar
+        const room = root.vertical ? sh - 40 : sh - thick - root.gap - root.extra - 16
+        root.maxHeight = Math.max(300, Math.min(1100, room))
+    }
+
+    // click outside closes. focus grab is created at runtime so a shell without
+    // the module still works (x button + esc)
+    property var grab: null
+
+    Timer { id: grabTimer; interval: 500; onTriggered: root.justClosedByGrab = false }
+
+    Component.onCompleted: {
+        try {
+            const g = Qt.createQmlObject(
+                'import Quickshell.Hyprland\nHyprlandFocusGrab { }', root, "TableauFocusGrab")
+            g.windows = [popup]
+            g.cleared.connect(() => {
+                root.justClosedByGrab = true
+                grabTimer.restart()
+                popup.visible = false
+            })
+            root.grab = g
+        } catch (e) {
+            root.grab = null
+        }
+    }
+
+    PopupWindow {
+        id: popup
+
+        visible: false
+        color: "transparent"
+        implicitWidth: (root.ui ? root.ui.cfgSafe.windowWidth : 580) + root.padLeft + root.padRight
+        implicitHeight: Math.min(root.maxHeight, root.ui ? root.ui.cfgSafe.windowHeight : 660) + root.padTop + root.padBottom
+
+        anchor.rect.x: root.rectX
+        anchor.rect.y: root.rectY
+        anchor.rect.width: root.rectW
+        anchor.rect.height: root.rectH
+        // open away from the bar
+        anchor.edges: root.vertical ? (root.barAtLeft ? Edges.Right : Edges.Left)
+                                    : (root.barAtTop ? Edges.Bottom : Edges.Top)
+        anchor.gravity: root.vertical ? (root.barAtLeft ? Edges.Right : Edges.Left)
+                                      : (root.barAtTop ? Edges.Bottom : Edges.Top)
+        // slide along the bar only, never onto it
+        anchor.adjustment: root.vertical ? PopupAdjustment.SlideY : PopupAdjustment.SlideX
+
+        onVisibleChanged: {
+            if (root.grab) Qt.callLater(() => { root.grab.active = popup.visible })
+        }
+
+        Shortcut {
+            sequence: "Escape"
+            context: Qt.WindowShortcut
+            onActivated: root.close()
+        }
+        Shortcut {
+            sequence: "Alt+Right"
+            context: Qt.WindowShortcut
+            onActivated: root.stepTab(1)
+        }
+        Shortcut {
+            sequence: "Alt+Left"
+            context: Qt.WindowShortcut
+            onActivated: root.stepTab(-1)
+        }
+
+        Item {
+            anchors.fill: parent
+            anchors.topMargin: root.padTop
+            anchors.bottomMargin: root.padBottom
+            anchors.leftMargin: root.padLeft
+            anchors.rightMargin: root.padRight
+
+            Loader {
+                id: viewLoader
+                anchors.fill: parent
+                active: root.svc !== null
+                sourceComponent: Component { PanelView { svc: root.svc; shown: popup.visible } }
+            }
+        }
+    }
+}
