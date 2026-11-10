@@ -4,6 +4,14 @@ All notable changes to Tableau. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [1.1.2] - 2026-11-10
+
+### Fixed
+
+- A layout change, from the bar button, the panel or **Super + L**, was undone when
+  Hyprland printed a warning or a note while making it. Only errors count now.
+- Warnings while the layouts load no longer show a "didn't load" notification.
+
 ## [1.1.1] - 2026-11-10
 
 ### Fixed
@@ -69,6 +77,7 @@ All notable changes to Tableau. The format follows
   set <layout> | status | refresh`.
 - A logo, light and dark, and an About tab.
 
+[1.1.2]: https://github.com/qempexe/omarchy-tableau/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/qempexe/omarchy-tableau/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/qempexe/omarchy-tableau/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/qempexe/omarchy-tableau/releases/tag/v1.0.0
