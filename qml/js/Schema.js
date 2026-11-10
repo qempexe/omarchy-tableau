@@ -56,6 +56,9 @@ var groups = [
       { key: "middle", section: "Sizes", label: "Triptych middle", kind: "steps", fmt: "percent", fallback: 0.5,
         min: 0.3, max: 0.8, options: [0.34, 0.4, 0.45, 0.5, 0.55, 0.6, 0.66],
         hint: "How much of the width the middle window gets in Triptych." },
+      { key: "step", section: "Sizes", label: "Resize step", kind: "steps", fmt: "percent", fallback: 0.01,
+        min: 0.002, max: 0.1, options: [0.005, 0.01, 0.02, 0.03, 0.05],
+        hint: "How much one press of Super + - or = grows or shrinks the main window. Hold the key to keep going; Alt makes the steps finer, Ctrl coarser." },
       { key: "gap", section: "Sizes", label: "Spread gap", kind: "steps", fmt: "px", fallback: 20,
         min: 0, max: 80, round: true, options: [0, 4, 8, 12, 20, 28, 40],
         hint: "The room between tiles in Spread, on top of your gaps." }
@@ -163,7 +166,7 @@ for (let g = 0; g < groups.length; g++)
 for (let h = 0; h < hiddenItems.length; h++) addItem(hiddenItems[h]);
 
 // what the layouts read: changing anything else never touches Hyprland
-var layoutKeys = ["outline", "others", "dim", "flash", "fullSize", "pane", "middle", "gap", "notify", "cycle"];
+var layoutKeys = ["outline", "others", "dim", "flash", "fullSize", "pane", "middle", "gap", "step", "notify", "cycle"];
 
 var settingKeys = [];
 for (const name in defaults) settingKeys.push(name);
@@ -278,6 +281,7 @@ function confText(cfg) {
     "pane=" + n(cfg.pane, "0.62"),
     "middle=" + n(cfg.middle, "0.5"),
     "gap=" + n(cfg.gap, "20"),
+    "step=" + n(cfg.step, "0.01"),
     "notify=" + (cfg.notify === false ? "0" : "1"),
     "cycle=" + cleanCycle(cfg.cycle).join(","),
     "full_size=" + (Array.isArray(cfg.fullSize) ? cfg.fullSize.map(className).filter(s => s !== "").join(",") : "")
@@ -299,7 +303,10 @@ function format(fmt, v, short) {
   if (!isFinite(n)) return "?";
   if (short && fmt === "px") return "" + Math.round(n);
   switch (fmt) {
-  case "percent": return Math.round(n * 100) + "%";
+  case "percent": {
+    const p = Math.round(n * 1000) / 10;
+    return (p === Math.round(p) ? "" + Math.round(p) : p.toFixed(1)) + "%";
+  }
   case "px": return Math.round(n) === 0 ? "None" : Math.round(n) + " px";
   default: return "" + parseFloat(n.toFixed(2));
   }

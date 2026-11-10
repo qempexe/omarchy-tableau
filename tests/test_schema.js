@@ -11,7 +11,7 @@ const ctx = {}
 vm.createContext(ctx)
 vm.runInContext("var Util = (function(){" + js("Util.js") + "; return { toText }})();" +
   "var Layouts = (function(){" + js("Layouts.js") + "; return { list, ids, byId, isLayout, nameOf, step, art }})();" +
-  js("Schema.js") + "; this.S = { defaults, resolve, clean, confText, cleanCycle, className, layoutKey, groups, Layouts }", ctx)
+  js("Schema.js") + "; this.S = { defaults, resolve, clean, confText, cleanCycle, className, layoutKey, groups, Layouts, format }", ctx)
 const S = ctx.S
 let n = 0
 const ok = (what, fn) => { fn(); n++; console.log("  ok   " + what) }
@@ -43,7 +43,7 @@ ok("settings.conf has one line per key and nothing else", () => {
   const c = S.resolve({ fullSize: ["steam", "evil\nos.execute('x')", "a=b"], outline: 6, flash: false, notify: false })
   const lines = S.confText(c).trim().split("\n").filter(l => !l.startsWith("#"))
   const keys = lines.map(l => l.split("=")[0])
-  assert.deepStrictEqual(keys, ["outline", "others", "dim", "flash", "pane", "middle", "gap", "notify", "cycle", "full_size"])
+  assert.deepStrictEqual(keys, ["outline", "others", "dim", "flash", "pane", "middle", "gap", "step", "notify", "cycle", "full_size"])
   for (const l of lines) assert.match(l, /^[a-z_]+=[a-z0-9.,:_+ -]*$/, l)
   assert.ok(lines.includes("outline=6") && lines.includes("flash=0") && lines.includes("notify=0"))
   assert.ok(lines.includes("full_size=steam,evilos.executex,ab"), lines.join("|"))
@@ -70,6 +70,13 @@ ok("the layout list is the one cycle_layout.py and the Lua know", () => {
   const lua = fs.readFileSync(path.join(__dirname, "../hypr/tableau.lua"), "utf8")
   const registered = [...lua.matchAll(/register_layout\("(tableau-[a-z-]+)"/g)].map(m => "lua:" + m[1]).sort()
   assert.strictEqual(JSON.stringify(registered), JSON.stringify(S.Layouts.ids.filter(i => i.startsWith("lua:")).sort()))
+})
+
+ok("the resize step", () => {
+  assert.strictEqual(S.resolve({}).step, 0.01)
+  assert.strictEqual(S.resolve({ step: 5 }).step, 0.1)
+  assert.strictEqual(S.resolve({ step: "x" }).step, 0.01)
+  assert.ok(S.confText(S.resolve({ step: 0.005 })).includes("\nstep=0.005\n"))
 })
 
 console.log(n + " checks passed")
