@@ -715,7 +715,55 @@ local function duo_recalculate(ctx, main_edge)
   local main = ordered[1]
   local side_count = #ordered - 1
   local ws_id = windows[1] and windows[1].workspace.id
-  local share = duo_shares[ws_id] or 0.62
+  if main_edge == "center" then
+    -- Triptych: the main window in the middle, the others stacked on its left and
+    -- right in turn (first to the left), each side sharing its height evenly.
+    local share = duo_shares[ws_id] or cfg.middle
+    local main_w = math.floor(area.w * share)
+    local left_w = math.floor((area.w - main_w) / 2)
+    local right_w = area.w - main_w - left_w
+    main:place({ x = area.x + left_w, y = area.y, w = main_w, h = area.h })
+    local left, right = {}, {}
+    for i = 2, #ordered do
+      local list = (i % 2 == 0) and left or right
+      list[#list + 1] = ordered[i]
+    end
+    if #right == 0 then
+      -- one other window: it gets the whole left, the main window the rest
+      main:place({ x = area.x + left_w, y = area.y, w = area.w - left_w, h = area.h })
+    end
+    for side, list in pairs({ [1] = left, [2] = right }) do
+      local x = side == 1 and area.x or (area.x + left_w + main_w)
+      local w = side == 1 and left_w or right_w
+      for k, target in ipairs(list) do
+        local y = area.y + (k - 1) * area.h / #list
+        local h = k == #list and (area.y + area.h - y) or area.h / #list
+        target:place({ x = x, y = y, w = w, h = h })
+      end
+    end
+    return
+  end
+  local share = duo_shares[ws_id] or cfg.pane
+  if main_edge == "bento" then
+    -- Bento: the main pane on the left; on the right the next window takes the top
+    -- half, and the rest share the bottom half side by side.
+    local main_w = math.floor(area.w * share)
+    local side_x, side_w = area.x + main_w, area.w - main_w
+    main:place({ x = area.x, y = area.y, w = main_w, h = area.h })
+    if side_count == 1 then
+      ordered[2]:place({ x = side_x, y = area.y, w = side_w, h = area.h })
+      return
+    end
+    local top_h = math.floor(area.h / 2)
+    ordered[2]:place({ x = side_x, y = area.y, w = side_w, h = top_h })
+    local rest = side_count - 1
+    for i = 3, #ordered do
+      local x = side_x + (i - 3) * side_w / rest
+      local w = i == #ordered and (side_x + side_w - x) or side_w / rest
+      ordered[i]:place({ x = x, y = area.y + top_h, w = w, h = area.h - top_h })
+    end
+    return
+  end
   if main_edge == "left" or main_edge == "right" then
     local main_w = math.floor(area.w * share)
     local side_w = area.w - main_w
@@ -760,6 +808,14 @@ register_layout("tableau-diptych-top", {
 register_layout("tableau-diptych-bottom", {
   recalculate = guarded(function(ctx) duo_recalculate(ctx, "bottom") end),
   layout_msg = refresh_message("tableau-diptych-bottom"),
+})
+register_layout("tableau-triptych", {
+  recalculate = guarded(function(ctx) duo_recalculate(ctx, "center") end),
+  layout_msg = refresh_message("tableau-triptych"),
+})
+register_layout("tableau-bento", {
+  recalculate = guarded(function(ctx) duo_recalculate(ctx, "bento") end),
+  layout_msg = refresh_message("tableau-bento"),
 })
 local balance_columns = {}
 local balance_weights = {}
@@ -1087,7 +1143,8 @@ end
 local function is_duo(ws)
   return ws and not ws.special
     and (ws.tiled_layout == "lua:tableau-diptych-left" or ws.tiled_layout == "lua:tableau-diptych-right"
-      or ws.tiled_layout == "lua:tableau-diptych-top" or ws.tiled_layout == "lua:tableau-diptych-bottom")
+      or ws.tiled_layout == "lua:tableau-diptych-top" or ws.tiled_layout == "lua:tableau-diptych-bottom"
+      or ws.tiled_layout == "lua:tableau-triptych" or ws.tiled_layout == "lua:tableau-bento")
 end
 
 local function is_balance(ws)
@@ -1685,7 +1742,8 @@ function M.resize(dx)
     local active = hl.get_active_window()
     local balance_ws = active and active.workspace
     if balance_ws and is_duo(balance_ws) and active.stable_id then
-      local share = duo_shares[balance_ws.id] or 0.62
+      local triptych = balance_ws.tiled_layout == "lua:tableau-triptych"
+      local share = duo_shares[balance_ws.id] or (triptych and cfg.middle or cfg.pane)
       local factor = 0.85 ^ (-dx / 100)
       duo_shares[balance_ws.id] = math.max(0.30, math.min(0.82, share * factor))
       hl.dispatch(hl.dsp.layout("refresh"))

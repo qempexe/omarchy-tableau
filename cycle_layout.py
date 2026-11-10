@@ -21,6 +21,8 @@ CHOICES = [
     ("lua:tableau-diptych-right", "Diptych Right"),
     ("lua:tableau-diptych-top", "Diptych Top"),
     ("lua:tableau-diptych-bottom", "Diptych Bottom"),
+    ("lua:tableau-triptych", "Triptych"),
+    ("lua:tableau-bento", "Bento"),
     ("lua:tableau-mosaic", "Mosaic"),
     ("lua:tableau-strip", "Strip"),
     ("lua:tableau-column", "Column"),

@@ -116,6 +116,7 @@ hl.define_submap("tableau-layout-picker-more", function()
     { "5", "lua:tableau-gallery-bottom" }, { "6", "lua:tableau-gallery-left" },
     { "7", "lua:tableau-gallery-top" }, { "8", "lua:tableau-spread" },
     { "9", "lua:tableau-diptych-top" }, { "0", "lua:tableau-diptych-bottom" },
+    { "minus", "lua:tableau-triptych" }, { "equal", "lua:tableau-bento" },
   }) do
     local selected = item[2]
     hl.bind(item[1], function()
