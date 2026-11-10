@@ -77,13 +77,13 @@ def main():
         if "gallery" in name:
             L.execute("thumbs_set = {}"); b1 = boxes(mock, L, name, 4, area)
             before = {k: (v.w, v.h) for k, v in L.eval("thumbs_set").items()}
-            L.execute("_G.omarchy_tableau.resize(-300)()")
+            L.execute("_G.omarchy_tableau.resize(1, 4, 300)()")
             L.execute("thumbs_set = {}"); b2 = mock.run(name, L.table_from(area))
             after = {k: (v.w, v.h) for k, v in L.eval("thumbs_set").items()}
             main1, main2 = b1[101], dict(b2[101])
             check(abs(main1["w"] * main1["h"] - main2["w"] * main2["h"]) > 1000, f"{name}: the resize keys did nothing")
             check(before == after, f"{name}: miniatures changed size with the main pane {before} {after}")
-            L.execute("_G.omarchy_tableau.resize(300)()")
+            L.execute("_G.omarchy_tableau.resize(-1, 4, 300)()")
     print("layouts:", ", ".join(n.replace("tableau-", "") for n in names))
     return names
 

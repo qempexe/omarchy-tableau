@@ -11,9 +11,9 @@
 --                          into a focused thumbnail)
 --   SUPER + SHIFT + arrows swap the focused window with its neighbour
 --   SUPER + Z              swap the focused thumbnail into the middle
---   SUPER + - / =          grow / shrink the main window, like Omarchy's expand
---                          and shrink keys (ALT: a little, CTRL: a lot); the
---                          others use the space that's left
+--   SUPER + - / =          grow / shrink the main window in small steps, and
+--                          keep going while held (ALT: finer, CTRL: coarser);
+--                          the others use the space that's left
 --
 -- The Diptychs, Triptych and Bento give the focused window the main pane. Mosaic,
 -- Spread, Strip, Column and Spiral share the screen, and the resize keys give the
@@ -51,6 +51,7 @@ local cfg = {
   pane = 0.62, -- share of the screen the main pane gets in the Diptychs and Bento
   middle = 0.50, -- share of the width the middle window gets in Triptych
   gap = 20, -- space between tiles in Spread
+  step = 0.01, -- how much one press of the resize keys changes (a share of the screen); held, it repeats
   full_size = {}, -- window classes never shown as miniatures (lower case)
 }
 
@@ -97,6 +98,7 @@ local function read_settings()
   cfg.pane = number_in(values.pane, 0.4, 0.85, 0.62)
   cfg.middle = number_in(values.middle, 0.3, 0.8, 0.5)
   cfg.gap = math.floor(number_in(values.gap, 0, 80, 20))
+  cfg.step = number_in(values.step, 0.002, 0.1, 0.01)
   local classes = {}
   for item in (values.full_size or ""):gmatch("[^,]+") do
     local class = item:lower():match("^%s*(.-)%s*$")
@@ -816,9 +818,11 @@ local balance_weights = {}
 local linear_weights = {}
 local spiral_weights = {}
 
-local function resize_weight(weights, id, dx)
+-- a tile's weight after one resize step: `amount` is the share of the screen to
+-- add (negative takes it away)
+local function resize_weight(weights, id, amount)
   local current = weights[id] or 1
-  return math.max(0.25, math.min(4, current * (0.85 ^ (dx / 100))))
+  return math.max(0.25, math.min(4, current * math.exp(2.5 * amount)))
 end
 
 local function grid_shape(area, count, preferred_aspect)
@@ -1732,24 +1736,41 @@ end
 -- Omarchy's horizontal resize keys, which expand (minus, dx < 0) or shrink (equal) a
 -- window. On a Tableau layout they do that to the main window, or to the focused tile
 -- in Mosaic, Spread, Strip, Column and Spiral; elsewhere they resize as usual.
-function M.resize(dx)
+-- The resize keys repeat while held. `grow` is 1 for Omarchy's expand key (minus) and
+-- -1 for shrink (equal); `scale` makes a step smaller (Alt) or larger (Ctrl). On a
+-- Tableau layout each step is cfg.step of the screen, so holding a key grows or shrinks
+-- the main window smoothly. Anywhere else the key resizes as Omarchy's does, `px` per
+-- press, and a held key doesn't repeat.
+local resize_held = false
+local resize_generation = 0
+local function note_resize_key()
+  local was = resize_held
+  resize_held = true
+  resize_generation = resize_generation + 1
+  local mine = resize_generation
+  -- repeats come every 40 ms or so; a gap longer than this is a new press
+  hl.timer(function() if resize_generation == mine then resize_held = false end end,
+    { timeout = 150, type = "oneshot" })
+  return was
+end
+
+function M.resize(grow, scale, px)
   return function()
+    local repeated = note_resize_key()
+    local amount = grow * cfg.step * scale
     local active = hl.get_active_window()
     local balance_ws = active and active.workspace
     if balance_ws and is_duo(balance_ws) and active.stable_id then
       local triptych = balance_ws.tiled_layout == "lua:tableau-triptych"
       local share = duo_shares[balance_ws.id] or (triptych and cfg.middle or cfg.pane)
-      local factor = 0.85 ^ (dx / 100)
-      duo_shares[balance_ws.id] = math.max(0.30, math.min(0.82, share * factor))
+      duo_shares[balance_ws.id] = math.max(0.30, math.min(0.82, share + amount))
       hl.dispatch(hl.dsp.layout("refresh"))
       return
     end
     if balance_ws and is_balance(balance_ws) and active.stable_id then
       local weights = balance_weights[balance_ws.id] or {}
       balance_weights[balance_ws.id] = weights
-      local current = weights[active.stable_id] or 1
-      local factor = 0.85 ^ (dx / 100)
-      weights[active.stable_id] = math.max(0.25, math.min(4, current * factor))
+      weights[active.stable_id] = resize_weight(weights, active.stable_id, amount)
       hl.dispatch(hl.dsp.layout("refresh"))
       return
     end
@@ -1760,14 +1781,14 @@ function M.resize(dx)
       if store then
         local weights = store[balance_ws.id] or {}
         store[balance_ws.id] = weights
-        weights[active.stable_id] = resize_weight(weights, active.stable_id, dx)
+        weights[active.stable_id] = resize_weight(weights, active.stable_id, amount)
         hl.dispatch(hl.dsp.layout("refresh"))
         return
       end
     end
     local ws = stage_focused()
     if not ws then
-      hl.dispatch(hl.dsp.window.resize({ x = dx, y = 0, relative = true }))
+      if not repeated then hl.dispatch(hl.dsp.window.resize({ x = -grow * px, y = 0, relative = true })) end
       return
     end
 
@@ -1776,15 +1797,14 @@ function M.resize(dx)
       or ws.tiled_layout == GALLERY_TOP_LAYOUT
     local width = rotated and (mon and (mon.height / mon.scale) or 1080) or (mon and (mon.width / mon.scale) or 1920)
     local height = rotated and (mon and (mon.width / mon.scale) or 1920) or (mon and (mon.height / mon.scale) or 1080)
-    -- Omarchy's "expand" is negative along the active layout axis.
     local share
     if ws.tiled_layout == HORIZON_LAYOUT then
       share = math.min(0.76, math.max(cfg.center_min, (height / width) / 2.1))
     else
       share = center_share({ w = width, h = height }, ws.id, false)
     end
-    local adjust = (center_adjust[ws.id] or 0) - 2 * dx / width
-    -- clamp so repeated presses past a limit don't pile up
+    local adjust = (center_adjust[ws.id] or 0) + amount
+    -- clamp so a held key past a limit doesn't pile up
     adjust = math.min(cfg.center_step_max - share, math.max(cfg.center_step_min - share, adjust))
     center_adjust[ws.id] = adjust
     save_center()
@@ -1812,14 +1832,16 @@ end
 o.bind("SUPER + Z", "Tableau: promote focused window", guarded(M.promote))
 
 for _, k in ipairs({
-  { "SUPER", -100, 100, "" },
-  { "SUPER + ALT", -25, 25, " a little" },
-  { "SUPER + CTRL", -300, 300, " a lot" },
+  { "SUPER", 1, 100, "" },
+  { "SUPER + ALT", 0.25, 25, " a little" },
+  { "SUPER + CTRL", 4, 300, " a lot" },
 }) do
   hl.unbind(k[1] .. " + code:20")
   hl.unbind(k[1] .. " + code:21")
-  o.bind(k[1] .. " + code:20", "Expand window" .. k[4] .. " (Tableau: the main window)", guarded(M.resize(k[2])))
-  o.bind(k[1] .. " + code:21", "Shrink window" .. k[4] .. " (Tableau: the main window)", guarded(M.resize(k[3])))
+  o.bind(k[1] .. " + code:20", "Expand window" .. k[4] .. " (Tableau: the main window, hold to keep going)",
+    guarded(M.resize(1, k[2], k[3])), { repeating = true })
+  o.bind(k[1] .. " + code:21", "Shrink window" .. k[4] .. " (Tableau: the main window, hold to keep going)",
+    guarded(M.resize(-1, k[2], k[3])), { repeating = true })
 end
 
 hl.unbind("ALT + TAB")

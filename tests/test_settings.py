@@ -72,18 +72,44 @@ mock.run("tableau-portrait", L.table_from({"x": 0, "y": 0, "w": 1920, "h": 1080}
 shown = sorted(L.eval("thumbs_set").keys())
 check(shown == ["a3"], f"app2 stays a real window, app3 is a miniature: {shown}")
 
-# Super + minus (dx < 0) expands, as Omarchy's own binding says, on every family
+# Super + minus expands and Super + = shrinks, in small steps of `step`, on every family
 area = L.table_from({"x": 0, "y": 0, "w": 1920, "h": 1080})
 for name in ["tableau-portrait", "tableau-diptych-left", "tableau-triptych", "tableau-bento", "tableau-mosaic",
              "tableau-strip", "tableau-spiral", "tableau-gallery-right"]:
     mock.workspace(5, "lua:" + name, 4)
     before = dict(mock.run(name, area)[101])
-    L.execute("_G.omarchy_tableau.resize(-100)()")
-    after = dict(mock.run(name, area)[101])
-    check(after["w"] * after["h"] > before["w"] * before["h"] + 100, f"{name}: Super + minus grows the focused window {before} {after}")
-    L.execute("_G.omarchy_tableau.resize(100)()")
+    L.execute("_G.omarchy_tableau.resize(1, 1, 100)()")
+    one = dict(mock.run(name, area)[101])
+    for _ in range(9): L.execute("_G.omarchy_tableau.resize(1, 1, 100)()")
+    ten = dict(mock.run(name, area)[101])
+    a0, a1, a10 = before["w"] * before["h"], one["w"] * one["h"], ten["w"] * ten["h"]
+    check(a0 < a1 < a10, f"{name}: Super + minus grows the focused window, more while held {a0} {a1} {a10}")
+    check((a1 - a0) / (1920 * 1080) < 0.03, f"{name}: one press is a small step ({(a1 - a0) / (1920 * 1080):.3f})")
+    for _ in range(10): L.execute("_G.omarchy_tableau.resize(-1, 1, 100)()")
     back = dict(mock.run(name, area)[101])
-    check(abs(back["w"] * back["h"] - before["w"] * before["h"]) < 50, f"{name}: Super + = undoes it")
+    check(abs(back["w"] * back["h"] - a0) < 200, f"{name}: Super + = takes it back {a0} {back}")
+
+# elsewhere the keys resize as Omarchy's do, once per press: a held key doesn't repeat there
+mock.run_timers()   # let go of the keys pressed above
+mock.workspace(6, "dwindle", 2)
+L.execute("require('hl_mock').dispatched = {}")
+for _ in range(3): L.execute("_G.omarchy_tableau.resize(1, 1, 100)()")
+resizes = [d for d in L.eval("require('hl_mock').dispatched").values() if d.kind == "window.resize"]
+check(len(resizes) == 1 and resizes[0].args.x == -100, f"one Omarchy-size resize for a held key off Tableau ({len(resizes)})")
+mock.run_timers()
+L.execute("_G.omarchy_tableau.resize(-1, 4, 300)()")
+resizes = [d for d in L.eval("require('hl_mock').dispatched").values() if d.kind == "window.resize"]
+check(len(resizes) == 2 and resizes[1].args.x == 300, "a new press after letting go resizes again")
+
+# the step comes from settings.conf
+with open(os.path.join(state, "hypr-tableau", "settings.conf"), "w") as f:
+    f.write("step=0.05\n")
+L.execute("_G.omarchy_tableau.reload_settings()")
+mock.workspace(7, "lua:tableau-diptych-left", 3)
+before = dict(mock.run("tableau-diptych-left", area)[101])
+L.execute("_G.omarchy_tableau.resize(1, 1, 100)()")
+after = dict(mock.run("tableau-diptych-left", area)[101])
+check(abs((after["w"] - before["w"]) - 0.05 * 1920) < 2, f"a 5% step {before['w']} -> {after['w']}")
 
 if FAILS:
     print("\n".join(FAILS)); print(len(FAILS), "failures"); sys.exit(1)

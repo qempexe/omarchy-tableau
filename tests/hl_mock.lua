@@ -1,6 +1,6 @@
 -- A stand-in for Hyprland's Lua API, just enough to load Tableau and run its layouts
 -- outside Hyprland. Records what Tableau asks Hyprland to do.
-local mock = { layouts = {}, rules = {}, dispatched = {}, binds = {}, handlers = {}, timers = {}, execs = {} }
+local mock = { layouts = {}, rules = {}, dispatched = {}, binds = {}, bind_opts = {}, handlers = {}, timers = {}, execs = {} }
 local windows, workspaces, active = {}, {}, nil
 
 local function dsp(kind)
@@ -62,7 +62,7 @@ _G.hl = {
 
 _G.o = {
   shell_quote = function(s) return "'" .. tostring(s):gsub("'", "'\\''") .. "'" end,
-  bind = function(keys, _, fn) mock.binds[keys] = fn end,
+  bind = function(keys, _, fn, opts) mock.binds[keys] = fn; mock.bind_opts[keys] = opts end,
   window = function(match, rules) rules.match = match; mock.rules[#mock.rules + 1] = rules end,
   workspace_mode = function(spec) mock.modes = mock.modes or {}; mock.modes[spec.workspace] = spec.mode end,
 }
