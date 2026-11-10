@@ -824,7 +824,7 @@ local spiral_weights = {}
 
 local function resize_weight(weights, id, dx)
   local current = weights[id] or 1
-  return math.max(0.25, math.min(4, current * (0.85 ^ (-dx / 100))))
+  return math.max(0.25, math.min(4, current * (0.85 ^ (dx / 100))))
 end
 
 local function grid_shape(area, count, preferred_aspect)
@@ -1735,8 +1735,9 @@ function M.tab_commit()
   end
 end
 
--- Omarchy's horizontal resize keys. On a stage workspace they widen or narrow
--- the middle window (kept centred); elsewhere they resize as usual.
+-- Omarchy's horizontal resize keys, which expand (minus, dx < 0) or shrink (equal) a
+-- window. On a Tableau layout they do that to the main window, or to the focused tile
+-- in Mosaic, Spread, Strip, Column and Spiral; elsewhere they resize as usual.
 function M.resize(dx)
   return function()
     local active = hl.get_active_window()
@@ -1744,7 +1745,7 @@ function M.resize(dx)
     if balance_ws and is_duo(balance_ws) and active.stable_id then
       local triptych = balance_ws.tiled_layout == "lua:tableau-triptych"
       local share = duo_shares[balance_ws.id] or (triptych and cfg.middle or cfg.pane)
-      local factor = 0.85 ^ (-dx / 100)
+      local factor = 0.85 ^ (dx / 100)
       duo_shares[balance_ws.id] = math.max(0.30, math.min(0.82, share * factor))
       hl.dispatch(hl.dsp.layout("refresh"))
       return
@@ -1753,7 +1754,7 @@ function M.resize(dx)
       local weights = balance_weights[balance_ws.id] or {}
       balance_weights[balance_ws.id] = weights
       local current = weights[active.stable_id] or 1
-      local factor = 0.85 ^ (-dx / 100)
+      local factor = 0.85 ^ (dx / 100)
       weights[active.stable_id] = math.max(0.25, math.min(4, current * factor))
       hl.dispatch(hl.dsp.layout("refresh"))
       return
@@ -1823,8 +1824,8 @@ for _, k in ipairs({
 }) do
   hl.unbind(k[1] .. " + code:20")
   hl.unbind(k[1] .. " + code:21")
-  o.bind(k[1] .. " + code:20", "Adjust Tableau layout size" .. k[4], guarded(M.resize(k[2])))
-  o.bind(k[1] .. " + code:21", "Adjust Tableau layout size" .. k[4], guarded(M.resize(k[3])))
+  o.bind(k[1] .. " + code:20", "Expand window" .. k[4] .. " (Tableau: the main window)", guarded(M.resize(k[2])))
+  o.bind(k[1] .. " + code:21", "Shrink window" .. k[4] .. " (Tableau: the main window)", guarded(M.resize(k[3])))
 end
 
 hl.unbind("ALT + TAB")

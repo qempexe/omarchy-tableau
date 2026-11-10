@@ -72,6 +72,19 @@ mock.run("tableau-portrait", L.table_from({"x": 0, "y": 0, "w": 1920, "h": 1080}
 shown = sorted(L.eval("thumbs_set").keys())
 check(shown == ["a3"], f"app2 stays a real window, app3 is a miniature: {shown}")
 
+# Super + minus (dx < 0) expands, as Omarchy's own binding says, on every family
+area = L.table_from({"x": 0, "y": 0, "w": 1920, "h": 1080})
+for name in ["tableau-portrait", "tableau-diptych-left", "tableau-triptych", "tableau-bento", "tableau-mosaic",
+             "tableau-strip", "tableau-spiral", "tableau-gallery-right"]:
+    mock.workspace(5, "lua:" + name, 4)
+    before = dict(mock.run(name, area)[101])
+    L.execute("_G.omarchy_tableau.resize(-100)()")
+    after = dict(mock.run(name, area)[101])
+    check(after["w"] * after["h"] > before["w"] * before["h"] + 100, f"{name}: Super + minus grows the focused window {before} {after}")
+    L.execute("_G.omarchy_tableau.resize(100)()")
+    back = dict(mock.run(name, area)[101])
+    check(abs(back["w"] * back["h"] - before["w"] * before["h"]) < 50, f"{name}: Super + = undoes it")
+
 if FAILS:
     print("\n".join(FAILS)); print(len(FAILS), "failures"); sys.exit(1)
 print("ok")
