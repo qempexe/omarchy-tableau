@@ -7,8 +7,17 @@ SO="$PLUGIN/stagethumbs.so"
 STAMP="$PLUGIN/.built-for"
 LOADED="$PLUGIN/.loaded"
 lua_quote() { local s=${1//\\/\\\\}; printf "'%s'" "${s//\'/\\\'}"; }
+STATE="${XDG_STATE_HOME:-$HOME/.local/state}/hypr-tableau"
+# hyprctl exits 0 even when the Lua fails and prints the error instead of "ok", so a
+# layout that didn't load is written down and shown once, not lost
 load_tableau() {
-  hyprctl eval "_G.tableau_runtime = true; dofile($(lua_quote "$DIR/tableau.lua")); dofile($(lua_quote "$ROOT/tableau.lua"))" >/dev/null
+  local out
+  out=$(hyprctl eval "_G.tableau_runtime = true; dofile($(lua_quote "$DIR/tableau.lua")); dofile($(lua_quote "$ROOT/tableau.lua"))" 2>&1)
+  [[ $out == ok ]] && return 0
+  [[ ${1:-} == quiet ]] && return 1   # the first try at start; the second one reports
+  mkdir -p "$STATE" && printf '%s load: %s\n' "$(date '+%F %T')" "${out:0:2000}" >>"$STATE/errors.log"
+  notify-send -a Tableau "Tableau's layouts didn't load" "${out:0:300}" 2>/dev/null || true
+  return 1
 }
 load_workspace_layouts() {
   local file="${XDG_CONFIG_HOME:-$HOME/.config}/hypr/omarchy-workspace-layout.lua"
@@ -42,7 +51,7 @@ load_thumbs() {
   sleep 0.5
 }
 case "${1:-start}" in
-  start) load_tableau; build_thumbs; load_thumbs; load_tableau; load_workspace_layouts ;;
+  start) load_tableau quiet; build_thumbs; load_thumbs; load_tableau; load_workspace_layouts ;;
   load) load_tableau; load_workspace_layouts ;;
   stop) hyprctl reload >/dev/null ;;
   *) echo "usage: $0 start|load|stop" >&2; exit 1 ;;
