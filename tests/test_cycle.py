@@ -31,24 +31,26 @@ elif sys.argv[1] == "eval":
         w["loaded"] = not w.get("never_loads", False); json.dump(w, open({world!r}, "w"))
     if "hl.get_workspaces()" in expr:
         if w.get("lua") is None:
-            print("[string]:1: attempt to index a nil value"); sys.exit(0)
+            print("error: [string]:1: attempt to index a nil value"); sys.exit(0)
         path = expr.split("io.open([[", 1)[1].split("]]", 1)[0]
         open(path, "w").write("".join(k + " " + v + "\\n" for k, v in w["lua"].items()))
         print("ok"); sys.exit(0)
     if "assert(_G.omarchy_tableau" in expr and not w.get("loaded", True):
-        print("[string]:1: Tableau's layouts are not loaded")   # hyprctl still exits 0
+        print("error: [string]:1: Tableau's layouts are not loaded")   # hyprctl still exits 0
+    elif w.get("warns") and "workspace_mode" in expr:
+        print("info: nothing to float\\nwarning: a rule was replaced")
     elif w.get("eval_fails") and "workspace_mode" in expr:
-        print("[string]:1: attempt to call a nil value")
+        print("error: [string]:1: attempt to call a nil value")
     else:
         print("ok")
 ''')
 stub("omarchy-notification-send", f'open({log!r}, "a").write("notify " + " | ".join(__import__("sys").argv[1:]) + "\\n")')
 stub("omarchy-shell", f'open({log!r}, "a").write("shell " + " ".join(__import__("sys").argv[1:]) + "\\n")')
 
-def run(*args, layout="dwindle", saved=None, eval_fails=0, loaded=True, never_loads=False, lua=None):
+def run(*args, layout="dwindle", saved=None, eval_fails=0, loaded=True, never_loads=False, lua=None, warns=False):
     ws = {"id": 2, "name": "2", "monitor": "eDP-1", "windows": 3, "tiledLayout": layout}
     json.dump({"active": ws, "workspaces": [ws, {"id": 12, "name": "2", "monitor": "HDMI-A-1", "windows": 1, "tiledLayout": "dwindle"}],
-               "eval_fails": eval_fails, "loaded": loaded, "never_loads": never_loads, "lua": lua}, open(world, "w"))
+               "eval_fails": eval_fails, "loaded": loaded, "never_loads": never_loads, "lua": lua, "warns": warns}, open(world, "w"))
     open(log, "w").close()
     env = dict(os.environ, PATH=bin_dir + ":/usr/bin:/bin", XDG_STATE_HOME=state)
     r = subprocess.run([sys.executable, os.path.join(ROOT, "cycle_layout.py"), *args], env=env,
@@ -129,6 +131,10 @@ conf("cycle=" + ",".join(["dwindle", "lua:tableau-portrait", "lua:tableau-bento"
 open(os.path.join(state, "omarchy/workspace-layouts/2.lua"), "w").write('o.workspace_mode({ workspace = "2", mode = "lua:tableau-bento" })\n')
 r, out = run("next", layout="lua:tableau-portrait")
 check('"lua:tableau-mosaic"' in mode_file(2), "Super + L goes on from Bento, not from Portrait: " + mode_file(2))
+
+# warnings and notes from Hyprland while the change runs don't make it a failure
+r, out = run("lua:tableau-strip", warns=True)
+check(r.returncode == 0 and "tableau-strip" in mode_file(2), "a change with warnings is kept: " + out[-160:])
 
 if FAILS:
     print("\n".join(FAILS)); print(len(FAILS), "failures"); sys.exit(1)

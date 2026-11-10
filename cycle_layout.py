@@ -116,11 +116,18 @@ def persist(path, workspace_id, mode):
 
 def hypr_eval(expression):
     """Runs Lua in Hyprland. hyprctl exits 0 even when the Lua fails, and prints the
-    error instead of "ok", so the answer is what counts."""
+    error instead of "ok", so the answer is what counts. It also prints the warnings
+    and notes Hyprland had while running it ("warning: ...", "info: ..."); the Lua
+    still ran then, so only "error: ..." lines, or no Lua at all, are a failure."""
     result = run(["hyprctl", "eval", expression])
     answer = (result.stdout or "").strip()
-    if result.returncode or answer != "ok":
+    if result.returncode or not answer:
         return answer or (result.stderr or "").strip() or "Hyprland did not answer"
+    if answer == "ok":
+        return None
+    errors = [line for line in answer.splitlines() if line.startswith("error")]
+    if errors or "only supported" in answer:
+        return "\n".join(errors) or answer
     return None
 
 
