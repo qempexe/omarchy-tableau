@@ -34,6 +34,11 @@ load_thumbs() {
   if hyprctl plugin list 2>/dev/null | grep -q '^Plugin stagethumbs '; then [[ $previous == "$target" ]] && return 0; hyprctl plugin unload "${previous:-$SO}" >/dev/null; sleep 0.3; fi
   hyprctl plugin load "$target" >/dev/null || return 0
   echo "$target" >"$LOADED"
+  # every build leaves a copy behind; keep only the one in use
+  local old
+  for old in "$PLUGIN"/tableau-thumbs-*.so "$PLUGIN"/orbit-thumbs-*.so; do
+    [[ -f $old && $old != "$target" ]] && rm -f -- "$old"
+  done
   sleep 0.5
 }
 case "${1:-start}" in
