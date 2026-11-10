@@ -1,0 +1,6 @@
+hypr/stagethumbs/*.so
+hypr/stagethumbs/*.so.tmp
+hypr/stagethumbs/.built-for
+hypr/stagethumbs/.loaded
+hypr/stagethumbs/build.log
+__pycache__/
