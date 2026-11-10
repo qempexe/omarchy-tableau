@@ -111,6 +111,15 @@ L.execute("_G.omarchy_tableau.resize(1, 1, 100)()")
 after = dict(mock.run("tableau-diptych-left", area)[101])
 check(abs((after["w"] - before["w"]) - 0.05 * 1920) < 2, f"a 5% step {before['w']} -> {after['w']}")
 
+# the keys: resize repeats while held; Super + Alt + L goes back, as in Omarchy
+opts = L.eval("require('hl_mock').bind_opts")
+check(all(opts[k] and opts[k].repeating for k in ["SUPER + code:20", "SUPER + ALT + code:21", "SUPER + CTRL + code:20"]),
+      "the resize keys repeat while held")
+L.execute("io.popen = function() return nil end")  # no saved modes to replay here
+L.execute("dofile(%r)" % (os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "tableau.lua")))
+binds = L.eval("require('hl_mock').binds")
+check(all(binds[k] for k in ["SUPER + L", "SUPER + SHIFT + L", "SUPER + ALT + L", "SUPER + CTRL + L"]), "the layout keys, Super + Alt + L too")
+
 if FAILS:
     print("\n".join(FAILS)); print(len(FAILS), "failures"); sys.exit(1)
 print("ok")

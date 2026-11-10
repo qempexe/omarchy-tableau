@@ -90,11 +90,14 @@ if not _G.tableau_workspace_restore_subscription then
 end
 schedule_restore()
 
+-- Omarchy cycles back with Super + Alt + L; Super + Shift + L does the same here
 hl.unbind("SUPER + L")
 hl.unbind("SUPER + SHIFT + L")
+hl.unbind("SUPER + ALT + L")
 hl.unbind("SUPER + CTRL + L")
 o.bind("SUPER + L", "Cycle workspace layout (Tableau)", cycle)
 o.bind("SUPER + SHIFT + L", "Cycle workspace layout back (Tableau)", cycle_back)
+o.bind("SUPER + ALT + L", "Cycle workspace layout back (Tableau)", cycle_back)
 hl.bind("SUPER + CTRL + L", open_layout_picker)
 hl.define_submap("tableau-layout-picker", function()
   for _, item in ipairs({
