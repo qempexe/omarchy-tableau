@@ -114,6 +114,37 @@ def persist(path, workspace_id, mode):
         raise
 
 
+def hypr_eval(expression):
+    """Runs Lua in Hyprland. hyprctl exits 0 even when the Lua fails, and prints the
+    error instead of "ok", so the answer is what counts."""
+    result = run(["hyprctl", "eval", expression])
+    answer = (result.stdout or "").strip()
+    if result.returncode or answer != "ok":
+        return answer or (result.stderr or "").strip() or "Hyprland did not answer"
+    return None
+
+
+TABLEAU_LOADED = 'assert(_G.omarchy_tableau, "Tableau\'s layouts are not loaded")'
+
+
+def ensure_loaded():
+    """Tableau's own layouts only exist once its Lua is loaded into Hyprland. Load it
+    again when it isn't (after a config reload it has to be), so a layout never falls
+    back to Hyprland's default without a word."""
+    if hypr_eval(TABLEAU_LOADED) is None:
+        return None
+    service = Path(__file__).resolve().parent / "hypr/tableau-service.sh"
+    try:
+        run(["bash", str(service), "load"], timeout=20)
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+    error = hypr_eval(TABLEAU_LOADED)
+    if error is None:
+        return None
+    log = state_home() / "hypr-tableau/errors.log"
+    return f"{error[:160]}. See {log}"
+
+
 def hypr_json(*args):
     result = run(["hyprctl", *args, "-j"])
     if result.returncode:
@@ -215,6 +246,10 @@ def main(argv):
         else:
             raise RuntimeError(f"Unknown layout: {requested[:60]}")
         next_name = NAMES[next_mode]
+        if next_mode.startswith("lua:"):
+            problem = ensure_loaded()
+            if problem:
+                raise RuntimeError(problem)
 
         # Save the mode the same way Omarchy does, so a successful apply is
         # already persistent if the compositor reloads immediately afterward.
@@ -232,13 +267,13 @@ def main(argv):
             "then _G.omarchy_tableau.sync_pointer_guard() end"
         )
         expression = f'o.workspace_mode({{ workspace = "{workspace_id}", mode = "{next_mode}" }}){sync_pointer_guard}'
-        applied = run(["hyprctl", "eval", expression])
-        if applied.returncode:
+        error = hypr_eval(expression)
+        if error:
             if previous is None:
                 mode_path.unlink(missing_ok=True)
             else:
                 mode_path.write_bytes(previous)
-            raise RuntimeError(applied.stderr.strip() or applied.stdout.strip() or "Hyprland rejected the layout")
+            raise RuntimeError(error[:200])
         if conf["notify"]:
             notify(next_name if target is None else f"Workspace {workspace.get('name', workspace_id)}: {next_name}")
         tell_shell()

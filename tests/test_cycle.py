@@ -25,15 +25,24 @@ w = json.load(open({world!r}))
 open({log!r}, "a").write("hyprctl " + " ".join(sys.argv[1:]) + "\\n")
 if sys.argv[1] == "activeworkspace": print(json.dumps(w["active"]))
 elif sys.argv[1] == "workspaces": print(json.dumps(w["workspaces"]))
-elif sys.argv[1] == "eval": sys.exit(w.get("eval_fails", 0))
+elif sys.argv[1] == "eval":
+    expr = " ".join(sys.argv[2:])
+    if "dofile" in expr:
+        w["loaded"] = not w.get("never_loads", False); json.dump(w, open({world!r}, "w"))
+    if "assert(_G.omarchy_tableau" in expr and not w.get("loaded", True):
+        print("[string]:1: Tableau's layouts are not loaded")   # hyprctl still exits 0
+    elif w.get("eval_fails") and "workspace_mode" in expr:
+        print("[string]:1: attempt to call a nil value")
+    else:
+        print("ok")
 ''')
 stub("omarchy-notification-send", f'open({log!r}, "a").write("notify " + " | ".join(__import__("sys").argv[1:]) + "\\n")')
 stub("omarchy-shell", f'open({log!r}, "a").write("shell " + " ".join(__import__("sys").argv[1:]) + "\\n")')
 
-def run(*args, layout="dwindle", saved=None, eval_fails=0):
+def run(*args, layout="dwindle", saved=None, eval_fails=0, loaded=True, never_loads=False):
     ws = {"id": 2, "name": "2", "monitor": "eDP-1", "windows": 3, "tiledLayout": layout}
     json.dump({"active": ws, "workspaces": [ws, {"id": 12, "name": "2", "monitor": "HDMI-A-1", "windows": 1, "tiledLayout": "dwindle"}],
-               "eval_fails": eval_fails}, open(world, "w"))
+               "eval_fails": eval_fails, "loaded": loaded, "never_loads": never_loads}, open(world, "w"))
     open(log, "w").close()
     env = dict(os.environ, PATH=bin_dir + ":/usr/bin:/bin", XDG_STATE_HOME=state)
     r = subprocess.run([sys.executable, os.path.join(ROOT, "cycle_layout.py"), *args], env=env,
@@ -86,7 +95,17 @@ check(r.returncode == 2, "a workspace that isn't a number is refused")
 
 before = mode_file(2)
 r, out = run("lua:tableau-spread", eval_fails=1)
-check(r.returncode == 1 and mode_file(2) == before, "a refused change puts the saved file back")
+check(r.returncode == 1 and mode_file(2) == before, "a Lua error (hyprctl still exits 0) puts the saved file back")
+check("attempt to call a nil value" in out, "and says what went wrong: " + out)
+
+r, out = run("lua:tableau-spread", loaded=False)
+check(r.returncode == 0 and "tableau-spread" in mode_file(2), "layouts that aren't loaded are loaded again first")
+check("hyprctl eval _G.tableau_runtime = true; dofile(" in out, "through tableau-service.sh load")
+before = mode_file(2)
+r, out = run("lua:tableau-mosaic", loaded=False, never_loads=True)
+check(r.returncode == 1 and mode_file(2) == before and "errors.log" in out, "when they still won't load, it says so and keeps the old layout: " + out[-200:])
+r, out = run("scrolling", loaded=False, never_loads=True)
+check(r.returncode == 0 and '"scrolling"' in mode_file(2), "Hyprland's own layouts don't need Tableau's")
 
 r, out = run("--status", layout="lua:tableau-gallery-left")
 st = json.loads(r.stdout)
