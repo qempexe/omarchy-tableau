@@ -50,6 +50,15 @@ local cfg = {
   thumb_opacity = 0.72, -- thumbnails at rest; the selected or hovered one is fully opaque
   select_border = 4, -- border (px) on thumbnails; only the selected one's is visible
   swap_flash_ms = 700, -- both windows of a swap light up this long, so it's clear which two traded places
+
+  -- from settings.conf (see read_settings below)
+  outline = 2, -- border (px) on every window of a Tableau layout, focused or not
+  others = "same", -- unfocused windows' border: same (as the focused one), theme (inactive color), hidden
+  flash = true, -- light up both windows of a swap
+  pane = 0.62, -- share of the screen the main pane gets in the Diptychs and Bento
+  middle = 0.50, -- share of the width the middle window gets in Triptych
+  gap = 20, -- space between tiles in Spread
+  full_size = {}, -- window classes never shown as miniatures (lower case)
 }
 
 local LAYOUT = "lua:tableau-portrait"
@@ -64,11 +73,45 @@ local GALLERY_TOP_LAYOUT = "lua:tableau-gallery-top"
 local STAGE_ICON = "\u{F1486}"
 local state_dir = (os.getenv("XDG_STATE_HOME") or (os.getenv("HOME") .. "/.local/state")) .. "/hypr-tableau"
 local error_file = state_dir .. "/errors.log"
+local settings_file = state_dir .. "/settings.conf"
 local ERROR_LOG_MAX = 256 * 1024
 
 local function shell_quote(value)
   return "'" .. tostring(value):gsub("'", "'\\''") .. "'"
 end
+
+-- settings.conf: one `key=value` per line, written by the Tableau panel. Only the keys
+-- below are read, each checked and clamped, so a hand edit can't break a layout.
+local function number_in(text, low, high, fallback)
+  local n = tonumber(text)
+  if not n or n ~= n then return fallback end
+  return math.max(low, math.min(high, n))
+end
+
+local function read_settings()
+  local file = io.open(settings_file, "r")
+  if not file then return end
+  local values = {}
+  for line in file:lines() do
+    local key, value = line:match("^%s*([%w_]+)%s*=%s*(.-)%s*$")
+    if key and #value <= 4096 then values[key] = value end
+  end
+  file:close()
+  cfg.outline = math.floor(number_in(values.outline, 0, 20, 2))
+  cfg.others = ({ same = "same", theme = "theme", hidden = "hidden" })[values.others or ""] or "same"
+  cfg.thumb_opacity = number_in(values.dim, 0.2, 1, 0.72)
+  cfg.flash = values.flash ~= "0"
+  cfg.pane = number_in(values.pane, 0.4, 0.85, 0.62)
+  cfg.middle = number_in(values.middle, 0.3, 0.8, 0.5)
+  cfg.gap = math.floor(number_in(values.gap, 0, 80, 20))
+  local classes = {}
+  for item in (values.full_size or ""):gmatch("[^,]+") do
+    local class = item:lower():match("^%s*(.-)%s*$")
+    if class ~= "" and #class <= 80 then classes[class] = true end
+  end
+  cfg.full_size = classes
+end
+read_settings()
 
 -- Hyprland shows callback errors only in its error bar, and every config
 -- reload clears that. Keep a copy, with a traceback, that survives.
@@ -428,11 +471,21 @@ local function show_full(target)
   end
 end
 
+-- Apps on the "never a miniature" list get a real small window instead.
+local function full_size(window)
+  local class = window and type(window.class) == "string" and window.class:lower() or ""
+  return cfg.full_size[class] == true
+end
+
 local function show_thumbnail(target, w, h)
   local p = thumbs()
   local address = target.window and target.window.address
   if p and address then
-    p.set(address, w, h)
+    if full_size(target.window) then
+      p.clear(address)
+    else
+      p.set(address, w, h)
+    end
   end
 end
 
@@ -988,7 +1041,7 @@ local function spread_layout(ctx)
   local cols, rows = grid_shape(ctx.area, #ordered, 1.55)
   local ws_id = windows[1] and windows[1].workspace.id
   if ws_id then balance_columns[ws_id] = cols end
-  place_weighted_grid(ordered, ctx.area, cols, rows, 20, ws_id)
+  place_weighted_grid(ordered, ctx.area, cols, rows, cfg.gap, ws_id)
 end
 
 register_layout("tableau-strip", { recalculate = guarded(strip_layout), layout_msg = refresh_message("tableau-strip") })
@@ -1176,6 +1229,7 @@ o.window({ tag = "stage-swap" }, {
 -- ended keeps the newer one; a window that closed meanwhile is skipped.
 local flash_gen = {}
 local function flash(ws, ids)
+  if not cfg.flash then return end
   local want = {}
   for _, id in ipairs(ids) do
     want[id] = true
