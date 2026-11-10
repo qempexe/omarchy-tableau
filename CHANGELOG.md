@@ -4,6 +4,32 @@ All notable changes to Tableau. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [1.1.0] - 2026-11-10
+
+### Added
+
+- **Resize step** under Windows › Sizes: how much one press of **Super + -** or
+  **Super + =** changes, from 0.5% to 5% of the screen.
+
+### Changed
+
+- The resize keys grow and shrink the main window or the focused tile in small steps,
+  and keep going while held. Alt makes the steps finer and Ctrl coarser. Elsewhere they
+  resize as Omarchy's do.
+- **Super + Alt + L**, Omarchy's key for the previous layout, goes back through
+  Tableau's layouts too.
+
+### Fixed
+
+- Choosing a layout could leave the workspace on Hyprland's own layout without a word
+  when Tableau's layouts weren't loaded in Hyprland. They are now loaded again first,
+  and when that fails the notification says so and points to the error log.
+- A Lua error while changing layout was taken for success, because `hyprctl` still
+  exits cleanly; the saved layout is now put back and the error shown.
+- When the layouts fail to load at start, the reason goes to the error log and a
+  notification.
+- The layout keys no longer depend on a helper only some Omarchy versions have.
+
 ## [1.0.0] - 2026-11-10
 
 ### Added
@@ -34,4 +60,5 @@ All notable changes to Tableau. The format follows
   set <layout> | status | refresh`.
 - A logo, light and dark, and an About tab.
 
+[1.1.0]: https://github.com/qempexe/omarchy-tableau/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/qempexe/omarchy-tableau/releases/tag/v1.0.0
