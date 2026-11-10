@@ -152,13 +152,48 @@ def hypr_json(*args):
     return json.loads(result.stdout)
 
 
-def mode_of(workspace, modes_dir):
-    """The mode a workspace is in: floating when Omarchy saved that, else its layout."""
+def lua_layouts():
+    """Every workspace's layout as Hyprland's Lua sees it, by workspace id. hyprctl's
+    own tiledLayout gives every Lua layout the name of the first one registered
+    (lua:tableau-portrait), so Tableau's layouts can only be told apart from Lua."""
+    path = state_home() / "hypr-tableau/layouts"
+    name = str(path)
+    if "]]" in name or "\n" in name:
+        return {}
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.unlink(missing_ok=True)
+    except OSError:
+        return {}
+    expression = (f"local f = io.open([[{name}]], 'w'); if f then "
+                  "for _, w in ipairs(hl.get_workspaces()) do "
+                  "f:write(tostring(w.id), ' ', tostring(w.tiled_layout), '\\n') end; f:close() end")
+    if hypr_eval(expression) is not None:
+        return {}
+    layouts = {}
+    try:
+        for line in path.read_text().splitlines()[:500]:
+            ident, _, layout = line.partition(" ")
+            if ident.lstrip("-").isdigit():
+                layouts[int(ident)] = layout.strip()[:80]
+    except OSError:
+        return {}
+    return layouts
+
+
+def mode_of(workspace, modes_dir, exact=None):
+    """The mode a workspace is in: floating when Omarchy saved that, else its layout,
+    from Lua when that answered (`exact`), else from hyprctl and the saved mode."""
     workspace_id = int(workspace.get("id", 0))
     persisted = saved_mode(modes_dir / f"{workspace_id}.lua") if workspace_id >= 1 else None
-    layout = str(workspace.get("tiledLayout", workspace.get("tiled_layout", "")))
     if persisted == "floating":
         return "floating"
+    if exact and workspace_id in exact:
+        return exact[workspace_id]
+    layout = str(workspace.get("tiledLayout", workspace.get("tiled_layout", "")))
+    # hyprctl calls every Lua layout by the first one's name: the saved mode says which
+    if layout.startswith("lua:") and isinstance(persisted, str) and persisted.startswith("lua:") and persisted in NAMES:
+        return persisted
     if layout not in NAMES and persisted in NAMES:
         return persisted
     return layout
@@ -167,12 +202,13 @@ def mode_of(workspace, modes_dir):
 def status(modes_dir):
     active = hypr_json("activeworkspace")
     listed = hypr_json("workspaces")
+    exact = lua_layouts()
     rows = {}
     for ws in listed if isinstance(listed, list) else []:
         workspace_id = int(ws.get("id", 0))
         if workspace_id < 1:
             continue
-        mode = mode_of(ws, modes_dir)
+        mode = mode_of(ws, modes_dir, exact)
         rows[workspace_id] = {"id": workspace_id, "name": str(ws.get("name", workspace_id))[:32],
                               "monitor": str(ws.get("monitor", ""))[:64], "windows": int(ws.get("windows", 0)),
                               "mode": mode, "label": NAMES.get(mode, mode[:40])}
@@ -188,7 +224,7 @@ def status(modes_dir):
     except OSError:
         pass
     active_id = int(active.get("id", 0))
-    active_mode = mode_of(active, modes_dir)
+    active_mode = mode_of(active, modes_dir, exact)
     return {"active": active_id, "mode": active_mode, "label": NAMES.get(active_mode, active_mode[:40]),
             "monitor": str(active.get("monitor", ""))[:64],
             "workspaces": [rows[k] for k in sorted(rows)]}
@@ -229,7 +265,7 @@ def main(argv):
             raise RuntimeError("Omarchy persistence supports numbered workspaces")
 
         mode_path = modes_dir / f"{workspace_id}.lua"
-        current = mode_of(workspace, modes_dir)
+        current = mode_of(workspace, modes_dir, lua_layouts())
         if requested in ("next", "back"):
             cycle = conf["cycle"]
             step = 1 if requested == "next" else -1

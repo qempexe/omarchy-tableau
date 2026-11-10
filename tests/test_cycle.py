@@ -29,6 +29,12 @@ elif sys.argv[1] == "eval":
     expr = " ".join(sys.argv[2:])
     if "dofile" in expr:
         w["loaded"] = not w.get("never_loads", False); json.dump(w, open({world!r}, "w"))
+    if "hl.get_workspaces()" in expr:
+        if w.get("lua") is None:
+            print("[string]:1: attempt to index a nil value"); sys.exit(0)
+        path = expr.split("io.open([[", 1)[1].split("]]", 1)[0]
+        open(path, "w").write("".join(k + " " + v + "\\n" for k, v in w["lua"].items()))
+        print("ok"); sys.exit(0)
     if "assert(_G.omarchy_tableau" in expr and not w.get("loaded", True):
         print("[string]:1: Tableau's layouts are not loaded")   # hyprctl still exits 0
     elif w.get("eval_fails") and "workspace_mode" in expr:
@@ -39,10 +45,10 @@ elif sys.argv[1] == "eval":
 stub("omarchy-notification-send", f'open({log!r}, "a").write("notify " + " | ".join(__import__("sys").argv[1:]) + "\\n")')
 stub("omarchy-shell", f'open({log!r}, "a").write("shell " + " ".join(__import__("sys").argv[1:]) + "\\n")')
 
-def run(*args, layout="dwindle", saved=None, eval_fails=0, loaded=True, never_loads=False):
+def run(*args, layout="dwindle", saved=None, eval_fails=0, loaded=True, never_loads=False, lua=None):
     ws = {"id": 2, "name": "2", "monitor": "eDP-1", "windows": 3, "tiledLayout": layout}
     json.dump({"active": ws, "workspaces": [ws, {"id": 12, "name": "2", "monitor": "HDMI-A-1", "windows": 1, "tiledLayout": "dwindle"}],
-               "eval_fails": eval_fails, "loaded": loaded, "never_loads": never_loads}, open(world, "w"))
+               "eval_fails": eval_fails, "loaded": loaded, "never_loads": never_loads, "lua": lua}, open(world, "w"))
     open(log, "w").close()
     env = dict(os.environ, PATH=bin_dir + ":/usr/bin:/bin", XDG_STATE_HOME=state)
     r = subprocess.run([sys.executable, os.path.join(ROOT, "cycle_layout.py"), *args], env=env,
@@ -111,6 +117,18 @@ r, out = run("--status", layout="lua:tableau-gallery-left")
 st = json.loads(r.stdout)
 check(st["active"] == 2 and st["label"] == "Gallery Left", f"status of the active workspace {st}")
 check([w["id"] for w in st["workspaces"]] == [2, 12], f"workspaces listed {st['workspaces']}")
+
+# hyprctl names every Lua layout after the first one registered (Portrait)
+import shutil
+open(os.path.join(state, "omarchy/workspace-layouts/2.lua"), "w").write('o.workspace_mode({ workspace = "2", mode = "lua:tableau-bento" })\n')
+r, out = run("--status", layout="lua:tableau-portrait")
+check(json.loads(r.stdout)["label"] == "Bento", "the saved mode says which Lua layout it is: " + r.stdout[:120])
+r, out = run("--status", layout="lua:tableau-portrait", lua={"2": "lua:tableau-spiral", "12": "dwindle"})
+check(json.loads(r.stdout)["label"] == "Spiral", "and Lua's own answer wins when it gives one: " + r.stdout[:120])
+conf("cycle=" + ",".join(["dwindle", "lua:tableau-portrait", "lua:tableau-bento", "lua:tableau-mosaic"]) + "\n")
+open(os.path.join(state, "omarchy/workspace-layouts/2.lua"), "w").write('o.workspace_mode({ workspace = "2", mode = "lua:tableau-bento" })\n')
+r, out = run("next", layout="lua:tableau-portrait")
+check('"lua:tableau-mosaic"' in mode_file(2), "Super + L goes on from Bento, not from Portrait: " + mode_file(2))
 
 if FAILS:
     print("\n".join(FAILS)); print(len(FAILS), "failures"); sys.exit(1)
