@@ -155,6 +155,37 @@ def main():
         click(mock, w[2]); L.execute("_G.omarchy_tableau.sync_pointer_guard()")
         check(not any("tableau-confine" in str(t) for x in w for t in x.tags.values()), name + ": no window is held, old tags come off")
 
+    # the keys move the focused window: the pointer goes along, so a game asking for a size
+    # hands the focus to nothing else; not with cursor:no_warps, not when it's there already
+    for layout in ("lua:tableau-portrait", "lua:tableau-diptych-left", "lua:tableau-mosaic"):
+        name = layout[len("lua:tableau-"):]
+        for how in ("move", "promote"):
+            L, mock, w = scene(layout)
+            mock.set_active(w[1]); point_at(mock, w[1])
+            if how == "move":
+                L.execute("_G.omarchy_tableau.move('%s')()" % ("r" if name == "portrait" else "l"))
+            else:
+                L.execute("_G.omarchy_tableau.promote()")
+            place(mock, layout)                     # the layout runs, the window is in its new spot
+            mock.run_timers()
+            moves = [d for d in mock.dispatched.values() if d.kind == "cursor.move"]
+            target = w[1]
+            inside = lambda d: target.at.x <= d.args.x < target.at.x + target.size.x and target.at.y <= d.args.y < target.at.y + target.size.y
+            if how == "promote" and name == "mosaic":
+                continue
+            check(len(moves) == 1 and inside(moves[0]), "%s: %s by the keys takes the pointer along" % (name, how))
+            L, mock, w = scene(layout)
+            mock.no_warps = True
+            mock.set_active(w[1]); point_at(mock, w[1])
+            L.execute(("_G.omarchy_tableau.move('%s')()" % ("r" if name == "portrait" else "l")) if how == "move" else "_G.omarchy_tableau.promote()")
+            place(mock, layout); mock.run_timers()
+            check(not [d for d in mock.dispatched.values() if d.kind == "cursor.move"], "%s: %s leaves the pointer with cursor:no_warps" % (name, how))
+    L, mock, w = scene("lua:tableau-portrait")
+    mock.set_active(w[0]); point_at(mock, w[0])
+    L.execute("_G.omarchy_tableau.promote()")
+    place(mock, "lua:tableau-portrait"); mock.run_timers()
+    check(not [d for d in mock.dispatched.values() if d.kind == "cursor.move"], "a pointer already on the window stays where it is")
+
     for button in (272, 273, 274, 275, 276):
         L, mock, w = scene("lua:tableau-portrait")
         opts = mock.bind_opts["mouse:%d" % button]
