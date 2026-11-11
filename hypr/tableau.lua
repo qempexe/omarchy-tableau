@@ -1392,8 +1392,30 @@ local function swap_and_flash(ws, list, id)
   end
 end
 
+-- When the keys move the focused window, the pointer goes along, as it does when Hyprland
+-- moves the focus: left behind, it would sit on another window, and a game asking for a
+-- size hands the focus to that one. Not when cursor:no_warps is on, nor when the pointer
+-- is on the window already.
+local follow_id = nil
+local function pointer_to(id)
+  local known, warps_off = pcall(hl.get_config, "cursor.no_warps")
+  if known and (warps_off == true or warps_off == 1) then return end
+  for _, w in ipairs(hl.get_windows()) do
+    if w.stable_id == id and w.mapped and w.at and w.size then
+      local ok, pos = pcall(hl.get_cursor_pos)
+      if ok and type(pos) == "table" and type(pos.x) == "number" and type(pos.y) == "number"
+        and pos.x >= w.at.x and pos.y >= w.at.y and pos.x < w.at.x + w.size.x and pos.y < w.at.y + w.size.y then
+        return
+      end
+      pcall(hl.dispatch, hl.dsp.cursor.move({ x = math.floor(w.at.x + w.size.x / 2), y = math.floor(w.at.y + w.size.y / 2) }))
+      return
+    end
+  end
+end
+
 -- Focus events fire mid-update; act on the next tick, once state has settled.
 local pending = false
+local relayout_now
 local function relayout_soon()
   if pending then
     return
@@ -1401,23 +1423,32 @@ local function relayout_soon()
   pending = true
   hl.timer(guarded(function()
     pending = false
-    local ws = hl.get_active_workspace()
-    if is_duo(ws) then
-      hl.dispatch(hl.dsp.layout("refresh"))
-      sync_active_pointer_guard()
-      return
-    end
-    if is_balance(ws) then
-      hl.dispatch(hl.dsp.layout("refresh"))
-      sync_active_pointer_guard()
-      return
-    end
-    ws = tableau_focused()
-    if ws then
-      hl.dispatch(hl.dsp.layout("refresh"))
-      if is_stage(ws) then update_thumbs(ws) end
+    relayout_now()
+    if follow_id then
+      local id = follow_id
+      follow_id = nil
+      hl.timer(guarded(function() pointer_to(id) end), { timeout = 1, type = "oneshot" })
     end
   end), { timeout = 1, type = "oneshot" })
+end
+
+relayout_now = function()
+  local ws = hl.get_active_workspace()
+  if is_duo(ws) then
+    hl.dispatch(hl.dsp.layout("refresh"))
+    sync_active_pointer_guard()
+    return
+  end
+  if is_balance(ws) then
+    hl.dispatch(hl.dsp.layout("refresh"))
+    sync_active_pointer_guard()
+    return
+  end
+  ws = tableau_focused()
+  if ws then
+    hl.dispatch(hl.dsp.layout("refresh"))
+    if is_stage(ws) then update_thumbs(ws) end
+  end
 end
 
 -- Set while stage navigation moves focus, so that focus isn't a promotion.
@@ -1612,6 +1643,7 @@ function M.promote()
   local ws = tableau_focused()
   if w and ws and w.stable_id then
     swap_and_flash(ws, slots_for(ws.id), w.stable_id)
+    follow_id = w.stable_id
     relayout_soon()
   end
 end
@@ -1701,6 +1733,7 @@ function M.move(dir)
       if to then
         list[from], list[to] = list[to], list[from]
         flash(ws, { current.stable_id, list[from] })
+        follow_id = current.stable_id
         relayout_soon()
       end
       return
@@ -1728,6 +1761,7 @@ function M.move(dir)
     if from and to then
       list[from], list[to] = list[to], list[from]
       flash(ws, { current.stable_id, best.stable_id })
+      follow_id = current.stable_id
       relayout_soon()
     end
   end
