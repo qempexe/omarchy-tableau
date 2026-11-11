@@ -40,13 +40,16 @@ ok("the cycle keeps the usual order", () => {
 })
 
 ok("settings.conf has one line per key and nothing else", () => {
-  const c = S.resolve({ fullSize: ["steam", "evil\nos.execute('x')", "a=b"], outline: 6, flash: false, notify: false })
+  const c = S.resolve({ fullSize: ["steam", "evil\nos.execute('x')", "a=b"], outline: 6, flash: false, notify: false,
+                        confineApps: ["Minecraft", "x\ny"] })
   const lines = S.confText(c).trim().split("\n").filter(l => !l.startsWith("#"))
   const keys = lines.map(l => l.split("=")[0])
-  assert.deepStrictEqual(keys, ["outline", "others", "dim", "flash", "pane", "middle", "gap", "step", "notify", "cycle", "full_size"])
+  assert.deepStrictEqual(keys, ["outline", "others", "dim", "flash", "pane", "middle", "gap", "step", "notify", "cycle", "full_size", "confine", "confine_apps"])
   for (const l of lines) assert.match(l, /^[a-z_]+=[a-z0-9.,:_+ -]*$/, l)
   assert.ok(lines.includes("outline=6") && lines.includes("flash=0") && lines.includes("notify=0"))
   assert.ok(lines.includes("full_size=steam,evilos.executex,ab"), lines.join("|"))
+  assert.ok(lines.includes("confine=1") && lines.includes("confine_apps=minecraft,xy"), lines.join("|"))
+  assert.ok(S.confText(S.resolve({ confine: false })).includes("\nconfine=0\n"))
 })
 
 ok("only the layout settings count as a change for Hyprland", () => {
