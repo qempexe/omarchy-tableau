@@ -4,6 +4,17 @@ All notable changes to Tableau. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [1.1.3] - 2026-11-11
+
+### Fixed
+
+- With a game open and the pointer on a window that isn't the focused one, the windows
+  kept trading places, fast and without end. A game running through XWayland asks for a
+  size over and over, Hyprland answers each time by focusing the window under the
+  pointer and calls that a click, and Tableau promoted it, which resized the game, which
+  asked again. While an X11 window is open, only a press of a mouse button promotes a
+  window now, and the focus goes back to the window that had it.
+
 ## [1.1.2] - 2026-11-10
 
 ### Fixed
@@ -77,6 +88,7 @@ All notable changes to Tableau. The format follows
   set <layout> | status | refresh`.
 - A logo, light and dark, and an About tab.
 
+[1.1.3]: https://github.com/qempexe/omarchy-tableau/compare/v1.1.2...v1.1.3
 [1.1.2]: https://github.com/qempexe/omarchy-tableau/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/qempexe/omarchy-tableau/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/qempexe/omarchy-tableau/compare/v1.0.0...v1.1.0
