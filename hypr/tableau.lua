@@ -1476,12 +1476,17 @@ local function after_press(count)
   promote(ws, w)
 end
 
+-- Hyprland focuses the clicked window right after the press, before anything else runs,
+-- so the press counts for that one focus only: a game handing the focus over a moment
+-- later, to the window that just went out from under the click, is no click.
 local function mouse_pressed()
   pressed = true
   press_count = press_count + 1
   local mine = press_count
-  hl.timer(function() if press_count == mine then pressed = false end end, { timeout = 150, type = "oneshot" })
-  hl.timer(guarded(function() after_press(mine) end), { timeout = 1, type = "oneshot" })
+  hl.timer(guarded(function()
+    if press_count == mine then pressed = false end
+    after_press(mine)
+  end), { timeout = 1, type = "oneshot" })
 end
 -- The buttons are only watched: the press goes on to the window as it always did. When
 -- none of them can be watched, every click counts, as before.
