@@ -115,12 +115,17 @@ end
 function mock.fire(event, ...)
   for _, fn in ipairs(mock.handlers[event] or {}) do fn(...) end
 end
-function mock.run_timers()
+-- every timer due, or with `upto` only those set for at most that many ms
+function mock.run_timers(upto)
   for _ = 1, 20 do
-    local pending = mock.timers
+    local pending, later = mock.timers, {}
     if #pending == 0 then return end
     mock.timers = {}
-    for _, t in ipairs(pending) do t.fn() end
+    for _, t in ipairs(pending) do
+      if upto and (t.opts and t.opts.timeout or 0) > upto then later[#later + 1] = t else t.fn() end
+    end
+    for _, t in ipairs(later) do mock.timers[#mock.timers + 1] = t end
+    if #later == #pending then return end
   end
 end
 

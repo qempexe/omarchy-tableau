@@ -102,6 +102,19 @@ def main():
         click(mock, w[0])
         check(main_window(mock, layout, w) == w[0].stable_id, name + ": a click on the miniature the game handed the focus to brings it forward")
 
+        # the game hands the focus to the window under the pointer, the click brings it forward,
+        # and a moment later the game hands the focus to the window that went out from under
+        # the click: that is no click, the swap stays
+        L, mock, w = scene(layout)
+        point_at(mock, w[1])
+        stray(mock, w[1])
+        mock.binds["mouse:272"]()             # Hyprland: that window has the focus, nothing to say
+        mock.run_timers(1)                    # the click is through
+        check(main_window(mock, layout, w) == w[1].stable_id, name + ": a click on the window the game handed the focus to brings it forward")
+        mock.set_active(w[0]); mock.fire("window.active", w[0], CLICK); mock.run_timers(1)
+        check(main_window(mock, layout, w) == w[1].stable_id, name + ": the game handing the focus on right after the click undoes nothing")
+        mock.run_timers()
+
         # a miniature that has the focus already, as after Super + arrows: a click brings it forward
         L, mock, w = scene(layout)
         mock.set_active(w[1])
