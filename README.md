@@ -86,10 +86,6 @@ focused one marked. **‹** and **›** step that workspace through the layouts.
 **Never a miniature** lists window classes that get a real small window instead of a
 miniature: games, video, anything that minds being drawn small.
 
-**Keep the pointer in games** holds the pointer inside a Steam or Wine game or gamescope
-while it has the focus in the main spot, so a quick turn of the camera doesn't end on the
-window beside it. **Keep the pointer in** does the same for the window classes you add.
-
 <br clear="right">
 
 ## Installation
@@ -189,24 +185,21 @@ through all of them, and **Changed only** shows what differs from the defaults.
 - **Miniatures are just small windows.** The thumbnail helper isn't built: install
   `base-devel` and restart the shell. Its build log is
   `hypr/stagethumbs/build.log` in the plugin folder.
-- **Games.** A game moves the pointer back to its middle after every move of the mouse.
-  A quick move carries it out of the window first, onto the window beside it. With
-  **Keep the pointer in games** (Rules) the pointer can't leave a Steam or Wine game or
-  gamescope while it has the focus in the main spot of a Tableau layout; **Keep the
-  pointer in** takes other window classes. A game shown as a miniature never holds the
-  pointer. Leave the game with **Super + arrows** or **Alt + Tab**.
 - **A game is cut off on the right, or the pointer leaves it sideways.** The game runs
   in a full screen mode (Full Screen, or a borderless or full window) at the size of the
   screen. It draws at that size whatever window it gets, so the window shows only part
-  of it, and it holds the pointer to the whole screen, which Hyprland lets win over
-  **Keep the pointer in games**. Set the game to its windowed mode: it then draws at the
-  size of its spot and holds the pointer to it. Or make it full screen with **Super + F**.
-- **The focus jumps while a game is open.** A game in a full screen mode asks Hyprland
-  for the size of the screen again and again, and each time Hyprland puts the focus on
-  whatever is under the pointer. While an X11 window is open, Tableau brings a window
-  forward on a press of a mouse button only, and gives the focus back to the window that
-  had it, without moving the pointer. A tap on a touchscreen brings nothing forward
-  then; **Super + Z** does. A game in its windowed mode doesn't ask.
+  of it, and while you steer it holds the pointer to the whole screen, not to its
+  window. Set the game to its windowed mode: it then draws at the size of its spot and
+  holds the pointer to it. Or make it full screen with **Super + F**.
+- **The focus follows the pointer while a game is open.** A game in a full screen mode
+  asks Hyprland for the size of the screen again and again, and each time Hyprland puts
+  the focus on whatever is under the pointer. Tableau leaves that focus where it is, so
+  nothing flickers, and brings a window forward only on a press of a mouse button: a
+  click on a window that has the focus already brings it forward too. A tap on a
+  touchscreen brings nothing forward while an X11 window is open; **Super + Z** does. A
+  game in its windowed mode doesn't ask.
+  When the keys move or bring forward the focused window, the pointer goes along with it,
+  so the focus stays there (unless `cursor:no_warps` is on).
 - **Focus does something odd.** `touch ~/.local/state/hypr-tableau/trace`, restart the
   shell, and every focus change is written to `focus.log` beside it, with the reason
   Hyprland gave. Remove the file to stop.
