@@ -4,6 +4,30 @@ All notable changes to Tableau. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [1.2.1] - 2026-11-11
+
+### Removed
+
+- **Keep the pointer in games**. It held the pointer in a game only while the game let
+  the pointer roam, so you couldn't leave the game with its cursor showing, and it never
+  held it while you steered: a game holds the pointer itself then, and Hyprland lets the
+  game win. A game in its windowed mode holds it to its window.
+
+### Fixed
+
+- The windows flickered while the pointer rested on one that didn't have the focus and
+  a game was open: Tableau took back the focus the game handed over, and the game handed
+  it over again, many times a second. That focus is left where it is now.
+- A click that brought a window forward was undone a moment later when a game was open:
+  the game handed the focus to the window that went out from under the click, and that
+  counted as the same click.
+- With a game open, the focus left a window moved with **Super + Shift + arrows** or
+  **Super + Z** after a moment, for the window the pointer was left on. The pointer goes
+  along with the window now.
+- Right after a shell restart, the focus a game hands over still brought windows
+  forward until the first click. The mouse buttons are known to be watched from the
+  start now.
+
 ## [1.2.0] - 2026-11-11
 
 ### Added
@@ -110,6 +134,7 @@ All notable changes to Tableau. The format follows
   set <layout> | status | refresh`.
 - A logo, light and dark, and an About tab.
 
+[1.2.1]: https://github.com/qempexe/omarchy-tableau/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/qempexe/omarchy-tableau/compare/v1.1.3...v1.2.0
 [1.1.3]: https://github.com/qempexe/omarchy-tableau/compare/v1.1.2...v1.1.3
 [1.1.2]: https://github.com/qempexe/omarchy-tableau/compare/v1.1.1...v1.1.2
