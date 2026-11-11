@@ -1472,7 +1472,7 @@ local function after_press(count)
   local ok, pos = pcall(hl.get_cursor_pos)
   if not ok or type(pos) ~= "table" or type(pos.x) ~= "number" or type(pos.y) ~= "number" then return end
   if pos.x < w.at.x or pos.y < w.at.y or pos.x >= w.at.x + w.size.x or pos.y >= w.at.y + w.size.y then return end
-  trace("a click on", tostring(w.class), "brings it forward")
+  trace("a click on", tostring(w.class) .. "#" .. tostring(w.stable_id), "brings it forward")
   promote(ws, w)
 end
 
@@ -1518,7 +1518,7 @@ hl.on("window.active", guarded(function(window, reason)
   end
   local had_press = pressed
   local stray = not_a_click(reason)
-  trace("focus", tostring(window.class), "reason", tostring(reason), "press", tostring(had_press),
+  trace("focus", tostring(window.class) .. "#" .. tostring(window.stable_id), "reason", tostring(reason), "press", tostring(had_press),
     stray and "not a click" or "", navigating and "by the keys" or "")
   if navigating then
     return
