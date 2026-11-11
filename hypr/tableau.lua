@@ -1455,20 +1455,20 @@ local function trace(...)
 end
 
 -- Hyprland says "click" for more than a click. When an X11 window asks for a size, which
--- games do again and again, and when a mouse button is let go after the pointer left the
--- window it was pressed in, it puts the focus on whatever is under the pointer, past the
--- hover block, and calls that a click too. A miniature under the pointer was then
--- promoted, the swap resized the game, the game asked again, and the windows kept trading
--- places. So while an X11 window is open, only a press of a mouse button is a click.
+-- a game in a full screen mode does again and again, Hyprland puts the focus on whatever
+-- is under the pointer, past the hover block, and calls that a click too. It does the
+-- same when a mouse button is let go after the pointer left the window it was pressed in.
+-- So while an X11 window is open, only a press of a mouse button is a click.
 local pressed = false
 local press_seen = false -- the buttons are known to report: until then every click counts
-local press_generation = 0
+local press_count = 0
+
 local function mouse_pressed()
   pressed = true
   press_seen = true
-  press_generation = press_generation + 1
-  local mine = press_generation
-  hl.timer(function() if press_generation == mine then pressed = false end end, { timeout = 150, type = "oneshot" })
+  press_count = press_count + 1
+  local mine = press_count
+  hl.timer(function() if press_count == mine then pressed = false end end, { timeout = 150, type = "oneshot" })
 end
 -- The buttons are only watched: the press goes on to the window as it always did.
 for _, button in ipairs({ 272, 273, 274, 275, 276 }) do
@@ -1491,40 +1491,41 @@ local function not_a_click(reason)
   return not was_pressed and x11_open()
 end
 
+-- Focus a window without moving the pointer: Hyprland takes the pointer along unless
+-- warps are off, so they are off for that one step. When that can't be done, nothing is.
+local function focus_in_place(w)
+  local known, warps_off = pcall(hl.get_config, "cursor.no_warps")
+  if not known then return false end
+  local switch = not (warps_off == true or warps_off == 1)
+  if switch and not pcall(hl.config, { cursor = { no_warps = true } }) then return false end
+  navigating = true
+  local ok = pcall(hl.dispatch, hl.dsp.focus({ window = w }))
+  navigating = false
+  if switch then pcall(hl.config, { cursor = { no_warps = false } }) end
+  return ok
+end
+
 -- The window that had the focus on each workspace before the pointer was handed it.
 local last_focus = {}
-local returns, returns_generation = 0, 0
 
--- Give the focus back to the window that had it, and take the pointer there too: left
--- where it is, the next size the game asks for hands the focus over again. A few times
--- in a row at most, should the pointer not move.
+-- Give the focus back to the window that had it, and leave the pointer where it is, so
+-- it can go on to the window it was heading for. A miniature only: the window in the
+-- main spot may have the focus. Every time the game asks again, as long as it asks: a
+-- limit would leave the focus on a miniature in the end.
 local function return_focus(taker)
   local ws = taker.workspace
   local back = ws and last_focus[ws.id]
   if not back or back == taker.stable_id or taker.floating then return end
   if not (is_stage(ws) or is_duo(ws)) or slots_for(ws.id)[1] == taker.stable_id then return end
-  if returns >= 6 then return end
-  returns = returns + 1
-  returns_generation = returns_generation + 1
-  local mine = returns_generation
-  hl.timer(function() if returns_generation == mine then returns = 0 end end, { timeout = 2000, type = "oneshot" })
-
+  local count = press_count
   hl.timer(guarded(function()
+    if press_count ~= count then return end -- a click came first: it decides
     local active = hl.get_active_window()
     if not active or active.stable_id ~= taker.stable_id then return end
     for _, w in ipairs(tiled_windows(ws)) do
       if w.stable_id == back then
         trace("focus goes back to", tostring(w.class))
-        navigating = true
-        pcall(hl.dispatch, hl.dsp.focus({ window = w }))
-        navigating = false
-        -- Hyprland moves the pointer with the focus unless warps are off; then it's moved here
-        local known, warps_off = pcall(hl.get_config, "cursor.no_warps")
-        if known and (warps_off == true or warps_off == 1) and w.at and w.size then
-          pcall(function()
-            hl.dispatch(hl.dsp.cursor.move({ x = w.at.x + w.size.x / 2, y = w.at.y + w.size.y / 2 }))
-          end)
-        end
+        focus_in_place(w)
         return
       end
     end
