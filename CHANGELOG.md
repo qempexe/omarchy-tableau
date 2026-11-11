@@ -4,6 +4,28 @@ All notable changes to Tableau. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [1.2.0] - 2026-11-11
+
+### Added
+
+- **Keep the pointer in games** (Rules), on by default: while a Steam or Wine game or
+  gamescope has the focus in the main spot of a Tableau layout, the pointer can't leave
+  its window, so a quick turn of the camera no longer ends on the window beside it.
+  **Keep the pointer in** takes other window classes. A game shown as a miniature never
+  holds the pointer.
+- `touch ~/.local/state/hypr-tableau/trace` and a shell restart write every focus
+  change to `focus.log`, with the reason Hyprland gave.
+
+### Fixed
+
+- A click on a miniature that had the focus already, after **Super + arrows** or after
+  a game handed it the focus, brought nothing forward. It does now.
+- With a game open, the focus a game hands to the window under the pointer goes back to
+  the window that had it every time, and the pointer stays where it is. In 1.1.3 it went
+  back a few times and then stayed on the miniature, so the next click did nothing.
+- Clicks count as clicks until a mouse button has been seen to report its presses, so
+  a setup where the buttons can't be watched behaves as it did before 1.1.3.
+
 ## [1.1.3] - 2026-11-11
 
 ### Fixed
@@ -88,6 +110,7 @@ All notable changes to Tableau. The format follows
   set <layout> | status | refresh`.
 - A logo, light and dark, and an About tab.
 
+[1.2.0]: https://github.com/qempexe/omarchy-tableau/compare/v1.1.3...v1.2.0
 [1.1.3]: https://github.com/qempexe/omarchy-tableau/compare/v1.1.2...v1.1.3
 [1.1.2]: https://github.com/qempexe/omarchy-tableau/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/qempexe/omarchy-tableau/compare/v1.1.0...v1.1.1

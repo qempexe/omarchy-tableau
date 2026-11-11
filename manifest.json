@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "io.github.qempexe.tableau",
   "name": "Tableau",
-  "version": "1.1.3",
+  "version": "1.2.0",
   "author": "qempexe",
   "license": "MIT",
   "description": "Eighteen window layouts in Omarchy's layout cycle: live miniatures around the window you use in Portrait, Landscape, Centerpiece and four Galleries, Diptychs, Triptych, Bento, Mosaic, Strip, Column, Spiral and Spread. A bar button and panel to pick layouts per workspace, set the window outline and choose what Super + L goes through.",
