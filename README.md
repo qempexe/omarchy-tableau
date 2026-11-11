@@ -185,6 +185,11 @@ through all of them, and **Changed only** shows what differs from the defaults.
 - **Miniatures are just small windows.** The thumbnail helper isn't built: install
   `base-devel` and restart the shell. Its build log is
   `hypr/stagethumbs/build.log` in the plugin folder.
+- **Games.** A game running through XWayland asks Hyprland for a size again and again,
+  and each time Hyprland puts the focus on whatever is under the pointer. While an X11
+  window is open, Tableau promotes a window on a press of a mouse button only, and gives
+  the focus back to the window that had it. A tap on a touchscreen promotes nothing
+  then; **Super + Z** does.
 - **An app looks wrong as a miniature.** Put its class on **Never a miniature**
   (Rules). `hyprctl clients` shows the class.
 - **A layout misbehaves.** Errors from the layouts are kept in
