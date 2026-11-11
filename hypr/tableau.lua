@@ -1463,12 +1463,45 @@ local pressed = false
 local press_seen = false -- the buttons are known to report: until then every click counts
 local press_count = 0
 
+local function super_down()
+  for _, key in ipairs({ "Super_L", "Super_R" }) do
+    local ok, down = pcall(hl.is_key_down, key)
+    if ok and down then return true end
+  end
+  return false
+end
+
+local function promote(ws, window)
+  local list = slots_for(ws.id)
+  if is_duo(ws) then sync(list, tiled_windows(ws), window.stable_id) end
+  swap_and_flash(ws, list, window.stable_id)
+  if is_duo(ws) then sync_active_pointer_guard() end
+  relayout_soon()
+end
+
+-- A click on a miniature that already has the focus changes no focus, so Hyprland says
+-- nothing about it: once the click is through, the focused window under the pointer
+-- comes forward if it isn't there yet. Super + a button moves and resizes windows.
+local function after_press(count)
+  if count ~= press_count or super_down() then return end
+  local w = hl.get_active_window()
+  if not w or not w.stable_id or w.floating or not w.workspace or not w.at or not w.size then return end
+  local ws = w.workspace
+  if not (is_stage(ws) or is_duo(ws)) or slots_for(ws.id)[1] == w.stable_id then return end
+  local ok, pos = pcall(hl.get_cursor_pos)
+  if not ok or type(pos) ~= "table" or type(pos.x) ~= "number" or type(pos.y) ~= "number" then return end
+  if pos.x < w.at.x or pos.y < w.at.y or pos.x >= w.at.x + w.size.x or pos.y >= w.at.y + w.size.y then return end
+  trace("a click on", tostring(w.class), "brings it forward")
+  promote(ws, w)
+end
+
 local function mouse_pressed()
   pressed = true
   press_seen = true
   press_count = press_count + 1
   local mine = press_count
   hl.timer(function() if press_count == mine then pressed = false end end, { timeout = 150, type = "oneshot" })
+  hl.timer(guarded(function() after_press(mine) end), { timeout = 1, type = "oneshot" })
 end
 -- The buttons are only watched: the press goes on to the window as it always did.
 for _, button in ipairs({ 272, 273, 274, 275, 276 }) do
@@ -1551,12 +1584,7 @@ hl.on("window.active", guarded(function(window, reason)
     return
   end
   if is_duo(window.workspace) and not window.floating then
-    local ws = window.workspace
-    local list = slots_for(ws.id)
-    sync(list, tiled_windows(ws), window.stable_id)
-    swap_and_flash(ws, list, window.stable_id)
-    sync_active_pointer_guard()
-    relayout_soon()
+    promote(window.workspace, window)
     return
   end
   if window.workspace and not is_stage(window.workspace) then
