@@ -1465,7 +1465,6 @@ end
 -- such a "click" hands over is left where it is: taking it back only has the game hand
 -- it over again, many times a second, and the windows flicker.
 local pressed = false
-local press_seen = false -- the buttons are known to report: until then every click counts
 local press_count = 0
 
 local function super_down()
@@ -1502,16 +1501,18 @@ end
 
 local function mouse_pressed()
   pressed = true
-  press_seen = true
   press_count = press_count + 1
   local mine = press_count
   hl.timer(function() if press_count == mine then pressed = false end end, { timeout = 150, type = "oneshot" })
   hl.timer(guarded(function() after_press(mine) end), { timeout = 1, type = "oneshot" })
 end
--- The buttons are only watched: the press goes on to the window as it always did.
+-- The buttons are only watched: the press goes on to the window as it always did. When
+-- none of them can be watched, every click counts, as before.
+local press_seen = false
 for _, button in ipairs({ 272, 273, 274, 275, 276 }) do
-  pcall(hl.bind, "mouse:" .. button, mouse_pressed,
+  local ok = pcall(hl.bind, "mouse:" .. button, mouse_pressed,
     { non_consuming = true, ignore_mods = true, dont_inhibit = true, submap_universal = true })
+  press_seen = press_seen or ok
 end
 
 local function x11_open()
@@ -1536,7 +1537,7 @@ hl.on("window.active", guarded(function(window, reason)
   local had_press = pressed
   local stray = not_a_click(reason)
   trace("focus", tostring(window.class), "reason", tostring(reason), "press", tostring(had_press),
-    "buttons seen", tostring(press_seen), stray and "not a click" or "", navigating and "by the keys" or "")
+    stray and "not a click" or "", navigating and "by the keys" or "")
   if navigating then
     return
   end
