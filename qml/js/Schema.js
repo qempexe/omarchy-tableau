@@ -71,12 +71,7 @@ var groups = [
         hint: "Every workspace and its layout. Omarchy keeps the choice for that workspace across restarts." },
       { key: "fullSize", section: "Apps", label: "Never a miniature", kind: "tags", fallback: [], max: 64,
         presets: ["mpv", "vlc", "steam", "gamescope", "obs", "zoom"],
-        hint: "Window classes that get a real small window instead of a scaled down picture in Portrait, Landscape, Centerpiece and the Galleries. Handy for games and video." },
-      { key: "confine", section: "Apps", label: "Keep the pointer in games", kind: "bool", fallback: true,
-        hint: "While a Steam or Wine game or gamescope has the focus in the main spot of a Tableau layout, the pointer can't leave its window, so a quick turn doesn't land on the window beside it. Leave the game with Super + arrows or Alt + Tab." },
-      { key: "confineApps", section: "Apps", label: "Keep the pointer in", kind: "tags", fallback: [], max: 64,
-        presets: ["gamescope", "minecraft", "retroarch"],
-        hint: "Other window classes the pointer stays inside while they have the focus. hyprctl clients shows the class." }
+        hint: "Window classes that get a real small window instead of a scaled down picture in Portrait, Landscape, Centerpiece and the Galleries. Handy for games and video." }
     ]
   },
   {
@@ -171,7 +166,7 @@ for (let g = 0; g < groups.length; g++)
 for (let h = 0; h < hiddenItems.length; h++) addItem(hiddenItems[h]);
 
 // what the layouts read: changing anything else never touches Hyprland
-var layoutKeys = ["outline", "others", "dim", "flash", "fullSize", "confine", "confineApps", "pane", "middle", "gap", "step", "notify", "cycle"];
+var layoutKeys = ["outline", "others", "dim", "flash", "fullSize", "pane", "middle", "gap", "step", "notify", "cycle"];
 
 var settingKeys = [];
 for (const name in defaults) settingKeys.push(name);
@@ -289,9 +284,7 @@ function confText(cfg) {
     "step=" + n(cfg.step, "0.01"),
     "notify=" + (cfg.notify === false ? "0" : "1"),
     "cycle=" + cleanCycle(cfg.cycle).join(","),
-    "full_size=" + (Array.isArray(cfg.fullSize) ? cfg.fullSize.map(className).filter(s => s !== "").join(",") : ""),
-    "confine=" + (cfg.confine === false ? "0" : "1"),
-    "confine_apps=" + (Array.isArray(cfg.confineApps) ? cfg.confineApps.map(className).filter(s => s !== "").join(",") : "")
+    "full_size=" + (Array.isArray(cfg.fullSize) ? cfg.fullSize.map(className).filter(s => s !== "").join(",") : "")
   ].join("\n") + "\n";
 }
 

@@ -23,7 +23,7 @@ def live(L):
 
 L, mock, state = fresh()
 now = live(L)
-check(set(now) == {"tableau-tile", "tableau-thumb", "tableau-hover", "tableau-swap", "tableau-confine"}, f"rules at load: {set(now)}")
+check(set(now) == {"tableau-tile", "tableau-thumb", "tableau-hover", "tableau-swap"}, f"rules at load: {set(now)}")
 tile = now["tableau-tile"]
 check(tile["border_size"] == 2, "default outline is 2 px")
 check(tile["border_color"] == "rgba(33ccffee) rgba(00ff99ee) 45deg rgba(33ccffee) rgba(00ff99ee) 45deg",
@@ -41,9 +41,7 @@ now = live(L)
 check(now["tableau-tile"]["border_size"] == 7, "outline 7")
 check("border_color" not in now["tableau-tile"], "theme keeps Omarchy's colors")
 check(now["tableau-thumb"]["opacity"] == "1.0 0.20", "fade clamped to 20%: " + now["tableau-thumb"]["opacity"])
-check(len([r for r in rules(L) if r.get("enabled") is False]) == 5, "the old rules are switched off")
-check(now["tableau-confine"]["confine_pointer"] is True and dict(now["tableau-confine"]["match"]) == {"tag": "tableau-confine"},
-      "the pointer stays inside windows with the confine tag")
+check(len([r for r in rules(L) if r.get("enabled") is False]) == 4, "the old rules are switched off")
 check(not os.path.exists("/tmp/claude-0/pwned"), "settings.conf is never run")
 
 with open(os.path.join(state, "hypr-tableau", "settings.conf"), "w") as f:
@@ -62,25 +60,6 @@ check("tableau-tile" not in tags[2], "a floating window isn't tagged")
 ws.tiled_layout = "dwindle"
 L.execute("_G.omarchy_tableau.sync_pointer_guard()")
 check(all("tableau-tile" not in list(w.tags.values()) for w in wins.values()), "tags come off on dwindle")
-
-# games keep the pointer: Steam and Wine games and gamescope by themselves, others from the list
-def confined(wins):
-    L.execute("_G.omarchy_tableau.sync_pointer_guard()")
-    return ["tableau-confine" in list(w.tags.values()) for w in wins.values()]
-with open(os.path.join(state, "hypr-tableau", "settings.conf"), "w") as f:
-    f.write("confine_apps=App2\n")
-L.execute("_G.omarchy_tableau.reload_settings()")
-ws, wins = mock.workspace(9, "lua:tableau-mosaic", 4)
-wins[1]["class"] = "steam_app_582660"; wins[3]["class"] = "BlackDesert64.exe"; wins[4]["class"] = "kitty"
-check(confined(wins) == [True, True, True, False], f"games and listed classes are confined, a terminal isn't: {confined(wins)}")
-wins[4]["class"] = "gamescope"; wins[1].floating = True
-check(confined(wins) == [False, True, True, True], f"gamescope too, a floating game isn't: {confined(wins)}")
-with open(os.path.join(state, "hypr-tableau", "settings.conf"), "w") as f:
-    f.write("confine=0\nconfine_apps=App2\n")
-L.execute("_G.omarchy_tableau.reload_settings()")
-check(confined(wins) == [False, True, False, False], f"switched off, only the listed class is left: {confined(wins)}")
-ws.tiled_layout = "dwindle"
-check(confined(wins) == [False, False, False, False], "and nothing is confined on dwindle")
 
 # the never-a-miniature list
 with open(os.path.join(state, "hypr-tableau", "settings.conf"), "w") as f:

@@ -53,8 +53,6 @@ local cfg = {
   gap = 20, -- space between tiles in Spread
   step = 0.01, -- how much one press of the resize keys changes (a share of the screen); held, it repeats
   full_size = {}, -- window classes never shown as miniatures (lower case)
-  confine = true, -- the pointer stays inside a game while the game has the focus
-  confine_apps = {}, -- other window classes it stays inside (lower case)
 }
 
 local LAYOUT = "lua:tableau-portrait"
@@ -116,8 +114,6 @@ local function read_settings()
     return classes
   end
   cfg.full_size = class_set(values.full_size)
-  cfg.confine = values.confine ~= "0"
-  cfg.confine_apps = class_set(values.confine_apps)
 end
 read_settings()
 
@@ -1252,31 +1248,15 @@ local function set_thumb(window, is_thumb)
   end
 end
 
--- A game moves the pointer back to its middle after every move of the mouse. A quick
--- move carries the pointer out of the window before the game gets to that, onto the
--- window beside it, and the game stops turning. Steam and Wine games, gamescope, and
--- the classes listed in the panel keep the pointer inside while they have the focus.
-local function keeps_pointer(window)
-  local class = type(window.class) == "string" and window.class:lower() or ""
-  if cfg.confine_apps[class] then return true end
-  if not cfg.confine then return false end
-  return class:find("^steam_app_") ~= nil or class:find("%.exe$") ~= nil or class == "gamescope"
-    or window.content_type == "game"
-end
-
 -- Every tiled window on a workspace with a Tableau layout carries "tableau-tile", for
--- the outline rule, and "tableau-confine" when the pointer stays inside it: a game in the
--- main spot, or any tile on a layout without one. Every other window loses them. Only
--- changes are dispatched.
+-- the outline rule; every other window loses it. Only changes are dispatched. 1.2.0 held
+-- the pointer in games with a "tableau-confine" tag, which comes off.
 sync_tile_tags = function()
   for _, w in ipairs(hl.get_windows()) do
     if w.mapped and w.stable_id then
       local want = not w.floating and is_tableau_layout(w.workspace) == true
       if has_tag(w, "tableau-tile") ~= want then tag_window(w, "tableau-tile", want) end
-      -- never a miniature: a miniature with the focus would hold the pointer in its small box
-      local main_spot = not (is_stage(w.workspace) or is_duo(w.workspace)) or slots_for(w.workspace.id)[1] == w.stable_id
-      local confine = want and main_spot and keeps_pointer(w)
-      if has_tag(w, "tableau-confine") ~= confine then tag_window(w, "tableau-confine", confine) end
+      if has_tag(w, "tableau-confine") then tag_window(w, "tableau-confine", false) end
     end
   end
 end
@@ -1356,11 +1336,11 @@ local function apply_rules()
   for _, name in ipairs(rule_names) do pcall(hl.window_rule, { name = name, enabled = false }) end
   rule_names = {}
   rule_generation = rule_generation + 1
-  local function rule(kind, props, optional)
+  local function rule(kind, props)
     props.name = "tableau-" .. kind .. "-" .. rule_generation
     rule_names[#rule_names + 1] = props.name
     local ok, err = pcall(hl.window_rule, props)
-    if not ok and not optional then error(err, 0) end
+    if not ok then error(err, 0) end
   end
   local active = active_gradient()
   local tile = { match = { tag = "tableau-tile" }, border_size = cfg.outline }
@@ -1375,9 +1355,6 @@ local function apply_rules()
     border_color = accent("ff") .. " " .. accent("99") })
   rule("swap", { match = { tag = "stage-swap" }, opacity = "1.0 1.0",
     border_color = accent("ff") .. " " .. accent("ff") })
-  -- Hyprland keeps the pointer inside such a window only while it has the focus. A
-  -- Hyprland that doesn't know the rule goes without it.
-  rule("confine", { match = { tag = "tableau-confine" }, confine_pointer = true }, true)
 end
 apply_rules()
 
