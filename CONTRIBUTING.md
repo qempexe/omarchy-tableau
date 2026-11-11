@@ -51,6 +51,7 @@ can.
 python3 tests/test_layouts.py    # every layout, 1 to 9 windows, three screens (Lua 5.5)
 python3 tests/test_settings.py   # settings.conf, the outline rules, tags, resize keys
 python3 tests/test_cycle.py      # cycle_layout.py with a stand-in hyprctl
+python3 tests/test_focus.py      # a click nobody made promotes nothing and gives the focus back
 node tests/test_schema.js        # the settings, settings.conf and the layout lists
 ```
 

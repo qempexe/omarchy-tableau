@@ -1,6 +1,7 @@
 -- A stand-in for Hyprland's Lua API, just enough to load Tableau and run its layouts
 -- outside Hyprland. Records what Tableau asks Hyprland to do.
-local mock = { layouts = {}, rules = {}, dispatched = {}, binds = {}, bind_opts = {}, handlers = {}, timers = {}, execs = {} }
+local mock = { layouts = {}, rules = {}, dispatched = {}, binds = {}, bind_opts = {}, handlers = {}, timers = {}, execs = {},
+               configs = {}, no_warps = false }
 local windows, workspaces, active = {}, {}, nil
 
 local function dsp(kind)
@@ -22,6 +23,11 @@ _G.hl = {
   end },
   plugin = {},
   dispatch = function(d) mock.dispatched[#mock.dispatched + 1] = d
+    if d.kind == "focus" and d.args and d.args.window then
+      mock.warped = mock.warped or not mock.no_warps
+      active = d.args.window
+      mock.fire("window.active", active, 8)
+    end
     if d.kind == "window.tag" then
       local target = d.args.window
       local w = type(target) == "table" and target or nil
@@ -40,13 +46,17 @@ _G.hl = {
   window_rule = function(r) mock.rules[#mock.rules + 1] = r; return r end,
   on = function(name, fn) mock.handlers[name] = mock.handlers[name] or {}; table.insert(mock.handlers[name], fn); return fn end,
   timer = function(fn, opts) mock.timers[#mock.timers + 1] = { fn = fn, opts = opts } end,
-  bind = function(keys, fn) mock.binds[keys] = fn end,
+  bind = function(keys, fn, opts) mock.binds[keys] = fn; mock.bind_opts[keys] = opts end,
+  config = function(values) mock.configs[#mock.configs + 1] = values
+    if values.cursor and values.cursor.no_warps ~= nil then mock.no_warps = values.cursor.no_warps end
+  end,
   unbind = function(keys) mock.binds[keys] = nil end,
   define_submap = function(name, fn) fn() end,
   exec_cmd = function(cmd) mock.execs[#mock.execs + 1] = cmd end,
   get_config = function(key)
     if key == "general.col.active_border" then return { colors = { "0xee33ccff", "0xee00ff99" }, angle = 45 } end
     if key == "general.col.inactive_border" then return { colors = { "0xaa595959" }, angle = 0 } end
+    if key == "cursor.no_warps" then return mock.no_warps end
   end,
   get_active_window = function() return active end,
   get_active_workspace = function() return workspaces[1] end,
