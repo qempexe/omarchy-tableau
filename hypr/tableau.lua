@@ -68,6 +68,9 @@ local STAGE_ICON = "\u{F1486}"
 local state_dir = (os.getenv("XDG_STATE_HOME") or (os.getenv("HOME") .. "/.local/state")) .. "/hypr-tableau"
 local error_file = state_dir .. "/errors.log"
 local settings_file = state_dir .. "/settings.conf"
+-- `touch` the first and restart the shell to have every focus change written to the second
+local trace_switch = state_dir .. "/trace"
+local trace_file = state_dir .. "/focus.log"
 local ERROR_LOG_MAX = 256 * 1024
 
 local function shell_quote(value)
@@ -83,6 +86,9 @@ local function number_in(text, low, high, fallback)
 end
 
 local function read_settings()
+  local switch = io.open(trace_switch, "r")
+  cfg.trace = switch ~= nil
+  if switch then switch:close() end
   local file = io.open(settings_file, "r")
   if not file then return end
   local values = {}
@@ -99,12 +105,15 @@ local function read_settings()
   cfg.middle = number_in(values.middle, 0.3, 0.8, 0.5)
   cfg.gap = math.floor(number_in(values.gap, 0, 80, 20))
   cfg.step = number_in(values.step, 0.002, 0.1, 0.01)
-  local classes = {}
-  for item in (values.full_size or ""):gmatch("[^,]+") do
-    local class = item:lower():match("^%s*(.-)%s*$")
-    if class ~= "" and #class <= 80 then classes[class] = true end
+  local function class_set(text)
+    local classes = {}
+    for item in (text or ""):gmatch("[^,]+") do
+      local class = item:lower():match("^%s*(.-)%s*$")
+      if class ~= "" and #class <= 80 then classes[class] = true end
+    end
+    return classes
   end
-  cfg.full_size = classes
+  cfg.full_size = class_set(values.full_size)
 end
 read_settings()
 
@@ -1412,24 +1421,37 @@ end
 -- Set while stage navigation moves focus, so that focus isn't a promotion.
 local navigating = false
 
+-- For finding out what Hyprland did on someone's desktop: one line per focus change.
+local function trace(...)
+  if not cfg.trace then return end
+  local file = io.open(trace_file, "a")
+  if not file then return end
+  if (file:seek("end") or 0) < ERROR_LOG_MAX then
+    file:write(os.date("%H:%M:%S "), table.concat({ ... }, " "), "\n")
+  end
+  file:close()
+end
+
 -- Hyprland says "click" for more than a click. When an X11 window asks for a size, which
--- games do again and again, it puts the focus on whatever is under the pointer, past the
+-- games do again and again, and when a mouse button is let go after the pointer left the
+-- window it was pressed in, it puts the focus on whatever is under the pointer, past the
 -- hover block, and calls that a click too. A miniature under the pointer was then
 -- promoted, the swap resized the game, the game asked again, and the windows kept trading
 -- places. So while an X11 window is open, only a press of a mouse button is a click.
 local pressed = false
+local press_seen = false -- the buttons are known to report: until then every click counts
 local press_generation = 0
 local function mouse_pressed()
   pressed = true
+  press_seen = true
   press_generation = press_generation + 1
   local mine = press_generation
   hl.timer(function() if press_generation == mine then pressed = false end end, { timeout = 150, type = "oneshot" })
 end
 -- The buttons are only watched: the press goes on to the window as it always did.
-local sees_presses = true
 for _, button in ipairs({ 272, 273, 274, 275, 276 }) do
-  sees_presses = pcall(hl.bind, "mouse:" .. button, mouse_pressed,
-    { non_consuming = true, ignore_mods = true, dont_inhibit = true, submap_universal = true }) and sees_presses
+  pcall(hl.bind, "mouse:" .. button, mouse_pressed,
+    { non_consuming = true, ignore_mods = true, dont_inhibit = true, submap_universal = true })
 end
 
 local function x11_open()
@@ -1441,7 +1463,7 @@ end
 
 -- A "click" nobody made: one that came without a press of a button.
 local function not_a_click(reason)
-  if reason ~= 5 or not sees_presses then return false end
+  if reason ~= 5 or not press_seen then return false end
   local was_pressed = pressed
   pressed = false -- one press, one click
   return not was_pressed and x11_open()
@@ -1451,14 +1473,15 @@ end
 local last_focus = {}
 local returns, returns_generation = 0, 0
 
--- Give the focus back to the window that had it, without moving the pointer. At most a
--- few times in a row: a window that takes the focus again every time keeps it.
+-- Give the focus back to the window that had it, and take the pointer there too: left
+-- where it is, the next size the game asks for hands the focus over again. A few times
+-- in a row at most, should the pointer not move.
 local function return_focus(taker)
   local ws = taker.workspace
   local back = ws and last_focus[ws.id]
   if not back or back == taker.stable_id or taker.floating then return end
   if not (is_stage(ws) or is_duo(ws)) or slots_for(ws.id)[1] == taker.stable_id then return end
-  if returns >= 4 then return end
+  if returns >= 6 then return end
   returns = returns + 1
   returns_generation = returns_generation + 1
   local mine = returns_generation
@@ -1469,15 +1492,17 @@ local function return_focus(taker)
     if not active or active.stable_id ~= taker.stable_id then return end
     for _, w in ipairs(tiled_windows(ws)) do
       if w.stable_id == back then
-        -- focusing a window moves the pointer onto it unless warps are off
-        local known, warps_off = pcall(hl.get_config, "cursor.no_warps")
-        if not known then return end
-        local switch = not (warps_off == true or warps_off == 1)
-        if switch and not pcall(hl.config, { cursor = { no_warps = true } }) then return end
+        trace("focus goes back to", tostring(w.class))
         navigating = true
         pcall(hl.dispatch, hl.dsp.focus({ window = w }))
         navigating = false
-        if switch then pcall(hl.config, { cursor = { no_warps = false } }) end
+        -- Hyprland moves the pointer with the focus unless warps are off; then it's moved here
+        local known, warps_off = pcall(hl.get_config, "cursor.no_warps")
+        if known and (warps_off == true or warps_off == 1) and w.at and w.size then
+          pcall(function()
+            hl.dispatch(hl.dsp.cursor.move({ x = w.at.x + w.size.x / 2, y = w.at.y + w.size.y / 2 }))
+          end)
+        end
         return
       end
     end
@@ -1488,7 +1513,10 @@ hl.on("window.active", guarded(function(window, reason)
   if not window or not window.stable_id then
     return
   end
+  local had_press = pressed
   local stray = not_a_click(reason)
+  trace("focus", tostring(window.class), "reason", tostring(reason), "press", tostring(had_press),
+    "buttons seen", tostring(press_seen), stray and "not a click" or "", navigating and "by the keys" or "")
   if not stray and window.workspace then
     last_focus[window.workspace.id] = window.stable_id
   end

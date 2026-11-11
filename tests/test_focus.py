@@ -13,12 +13,14 @@ def check(cond, what):
 
 CLICK, DISPATCH = 5, 3
 
-def scene(layout, x11):
+def scene(layout, x11, pressed_before=True):
     L, mock, _ = fresh()
     ws, wins = mock.workspace(1, layout, 3)
     w = [wins[i] for i in (1, 2, 3)]
     w[2].xwayland = x11                       # the game
     mock.fire("window.active", w[0], DISPATCH)
+    if pressed_before:                        # a press somewhere, some time ago
+        mock.binds["mouse:272"]()
     mock.run_timers()
     mock.dispatched = L.table()
     return L, mock, w
@@ -49,7 +51,7 @@ def main():
         check(main_window(mock, layout, w) == w[0].stable_id, name + ": a click nobody made leaves the windows where they are")
         back = focus_returns(mock)
         check(len(back) == 1 and back[0].args.window.stable_id == w[0].stable_id, name + ": and the focus goes back to the window that had it")
-        check(not mock.warped and mock.no_warps is False, name + ": without moving the pointer, and warps are as they were")
+        check(mock.warped and len(list(mock.configs.values())) == 0, name + ": the pointer goes with it, and no setting is touched")
 
         click(mock, w[1])
         check(main_window(mock, layout, w) == w[1].stable_id, name + ": a real click still promotes")
@@ -66,7 +68,7 @@ def main():
             mock.set_active(w[i % 2]); mock.fire("window.active", w[i % 2], CLICK)
         mock.run_timers()
         check(main_window(mock, layout, w) == w[1].stable_id, name + ": forty in a row trade no places")
-        check(len(focus_returns(mock)) <= 4, name + ": and the focus is handed back a few times at most (%d)" % len(focus_returns(mock)))
+        check(len(focus_returns(mock)) <= 6, name + ": and the focus is handed back a few times at most (%d)" % len(focus_returns(mock)))
 
         L, mock, w = scene(layout, x11=True)
         mock.area = L.table_from({"x": 0, "y": 0, "w": 1920, "h": 1080})
@@ -85,7 +87,14 @@ def main():
         mock.area = L.table_from({"x": 0, "y": 0, "w": 1920, "h": 1080})
         mock.no_warps = True
         stray(mock, w[1])
-        check(len(focus_returns(mock)) == 1 and len(list(mock.configs.values())) == 0, name + ": warps already off are left alone")
+        moves = [d for d in mock.dispatched.values() if d.kind == "cursor.move"]
+        check(len(focus_returns(mock)) == 1 and len(moves) == 1, name + ": with warps off the pointer is moved to the window all the same")
+
+        # until a button has been seen to report, every click counts, as it always did
+        L, mock, w = scene(layout, x11=True, pressed_before=False)
+        mock.area = L.table_from({"x": 0, "y": 0, "w": 1920, "h": 1080})
+        stray(mock, w[1])
+        check(main_window(mock, layout, w) == w[1].stable_id, name + ": before any press was seen a click promotes")
 
         L, mock, w = scene(layout, x11=False)
         mock.area = L.table_from({"x": 0, "y": 0, "w": 1920, "h": 1080})
@@ -101,7 +110,7 @@ def main():
     L, mock, _ = fresh()
     ws, wins = mock.workspace(1, "lua:tableau-mosaic", 3)
     wins[3].xwayland = True
-    mock.fire("window.active", wins[1], DISPATCH); mock.run_timers(); mock.dispatched = L.table()
+    mock.fire("window.active", wins[1], DISPATCH); mock.binds["mouse:272"](); mock.run_timers(); mock.dispatched = L.table()
     stray(mock, wins[2])
     check(len(focus_returns(mock)) == 0, "a layout without a main window lets the focus be")
 

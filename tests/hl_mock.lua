@@ -13,6 +13,7 @@ end
 _G.hl = {
   dsp = setmetatable({
     window = dsp("window"),
+    cursor = dsp("cursor"),
     layout = function(msg) return { kind = "layout", args = msg } end,
     focus = function(args) return { kind = "focus", args = args } end,
     submap = function(name) return { kind = "submap", args = name } end,
