@@ -1461,7 +1461,9 @@ end
 -- a game in a full screen mode does again and again, Hyprland puts the focus on whatever
 -- is under the pointer, past the hover block, and calls that a click too. It does the
 -- same when a mouse button is let go after the pointer left the window it was pressed in.
--- So while an X11 window is open, only a press of a mouse button is a click.
+-- So while an X11 window is open, only a press of a mouse button is a click. The focus
+-- such a "click" hands over is left where it is: taking it back only has the game hand
+-- it over again, many times a second, and the windows flicker.
 local pressed = false
 local press_seen = false -- the buttons are known to report: until then every click counts
 local press_count = 0
@@ -1527,47 +1529,6 @@ local function not_a_click(reason)
   return not was_pressed and x11_open()
 end
 
--- Focus a window without moving the pointer: Hyprland takes the pointer along unless
--- warps are off, so they are off for that one step. When that can't be done, nothing is.
-local function focus_in_place(w)
-  local known, warps_off = pcall(hl.get_config, "cursor.no_warps")
-  if not known then return false end
-  local switch = not (warps_off == true or warps_off == 1)
-  if switch and not pcall(hl.config, { cursor = { no_warps = true } }) then return false end
-  navigating = true
-  local ok = pcall(hl.dispatch, hl.dsp.focus({ window = w }))
-  navigating = false
-  if switch then pcall(hl.config, { cursor = { no_warps = false } }) end
-  return ok
-end
-
--- The window that had the focus on each workspace before the pointer was handed it.
-local last_focus = {}
-
--- Give the focus back to the window that had it, and leave the pointer where it is, so
--- it can go on to the window it was heading for. A miniature only: the window in the
--- main spot may have the focus. Every time the game asks again, as long as it asks: a
--- limit would leave the focus on a miniature in the end.
-local function return_focus(taker)
-  local ws = taker.workspace
-  local back = ws and last_focus[ws.id]
-  if not back or back == taker.stable_id or taker.floating then return end
-  if not (is_stage(ws) or is_duo(ws)) or slots_for(ws.id)[1] == taker.stable_id then return end
-  local count = press_count
-  hl.timer(guarded(function()
-    if press_count ~= count then return end -- a click came first: it decides
-    local active = hl.get_active_window()
-    if not active or active.stable_id ~= taker.stable_id then return end
-    for _, w in ipairs(tiled_windows(ws)) do
-      if w.stable_id == back then
-        trace("focus goes back to", tostring(w.class))
-        focus_in_place(w)
-        return
-      end
-    end
-  end), { timeout = 1, type = "oneshot" })
-end
-
 hl.on("window.active", guarded(function(window, reason)
   if not window or not window.stable_id then
     return
@@ -1576,14 +1537,10 @@ hl.on("window.active", guarded(function(window, reason)
   local stray = not_a_click(reason)
   trace("focus", tostring(window.class), "reason", tostring(reason), "press", tostring(had_press),
     "buttons seen", tostring(press_seen), stray and "not a click" or "", navigating and "by the keys" or "")
-  if not stray and window.workspace then
-    last_focus[window.workspace.id] = window.stable_id
-  end
   if navigating then
     return
   end
   if stray and (is_duo(window.workspace) or is_stage(window.workspace)) then
-    return_focus(window)
     return
   end
   if is_duo(window.workspace) and not window.floating then
