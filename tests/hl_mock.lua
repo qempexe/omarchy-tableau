@@ -1,7 +1,7 @@
 -- A stand-in for Hyprland's Lua API, just enough to load Tableau and run its layouts
 -- outside Hyprland. Records what Tableau asks Hyprland to do.
 local mock = { layouts = {}, rules = {}, dispatched = {}, binds = {}, bind_opts = {}, handlers = {}, timers = {}, execs = {},
-               configs = {}, no_warps = false }
+               configs = {}, no_warps = false, cursor = { x = 0, y = 0 }, keys = {} }
 local windows, workspaces, active = {}, {}, nil
 
 local function dsp(kind)
@@ -27,7 +27,7 @@ _G.hl = {
     if d.kind == "focus" and d.args and d.args.window then
       mock.warped = mock.warped or not mock.no_warps
       active = d.args.window
-      mock.fire("window.active", active, 8)
+      mock.fire("window.active", active, 3)
     end
     if d.kind == "window.tag" then
       local target = d.args.window
@@ -57,9 +57,14 @@ _G.hl = {
   get_config = function(key)
     if key == "general.col.active_border" then return { colors = { "0xee33ccff", "0xee00ff99" }, angle = 45 } end
     if key == "general.col.inactive_border" then return { colors = { "0xaa595959" }, angle = 0 } end
-    if key == "cursor.no_warps" then return mock.no_warps end
+    if key == "cursor.no_warps" then
+      if mock.no_config then error("no such option") end
+      return mock.no_warps
+    end
   end,
   get_active_window = function() return active end,
+  get_cursor_pos = function() return { x = mock.cursor.x, y = mock.cursor.y } end,
+  is_key_down = function(key) return mock.keys[key] == true end,
   get_active_workspace = function() return workspaces[1] end,
   get_workspace_windows = function(sel)
     local out = {}

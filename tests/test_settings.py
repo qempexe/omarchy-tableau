@@ -70,7 +70,7 @@ def confined(wins):
 with open(os.path.join(state, "hypr-tableau", "settings.conf"), "w") as f:
     f.write("confine_apps=App2\n")
 L.execute("_G.omarchy_tableau.reload_settings()")
-ws, wins = mock.workspace(9, "lua:tableau-portrait", 4)
+ws, wins = mock.workspace(9, "lua:tableau-mosaic", 4)
 wins[1]["class"] = "steam_app_582660"; wins[3]["class"] = "BlackDesert64.exe"; wins[4]["class"] = "kitty"
 check(confined(wins) == [True, True, True, False], f"games and listed classes are confined, a terminal isn't: {confined(wins)}")
 wins[4]["class"] = "gamescope"; wins[1].floating = True
