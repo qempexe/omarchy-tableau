@@ -1265,14 +1265,17 @@ local function keeps_pointer(window)
 end
 
 -- Every tiled window on a workspace with a Tableau layout carries "tableau-tile", for
--- the outline rule, and "tableau-confine" when the pointer stays inside it; every other
--- window loses them. Only changes are dispatched.
+-- the outline rule, and "tableau-confine" when the pointer stays inside it: a game in the
+-- main spot, or any tile on a layout without one. Every other window loses them. Only
+-- changes are dispatched.
 sync_tile_tags = function()
   for _, w in ipairs(hl.get_windows()) do
     if w.mapped and w.stable_id then
       local want = not w.floating and is_tableau_layout(w.workspace) == true
       if has_tag(w, "tableau-tile") ~= want then tag_window(w, "tableau-tile", want) end
-      local confine = want and keeps_pointer(w)
+      -- never a miniature: a miniature with the focus would hold the pointer in its small box
+      local main_spot = not (is_stage(w.workspace) or is_duo(w.workspace)) or slots_for(w.workspace.id)[1] == w.stable_id
+      local confine = want and main_spot and keeps_pointer(w)
       if has_tag(w, "tableau-confine") ~= confine then tag_window(w, "tableau-confine", confine) end
     end
   end

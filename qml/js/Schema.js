@@ -73,7 +73,7 @@ var groups = [
         presets: ["mpv", "vlc", "steam", "gamescope", "obs", "zoom"],
         hint: "Window classes that get a real small window instead of a scaled down picture in Portrait, Landscape, Centerpiece and the Galleries. Handy for games and video." },
       { key: "confine", section: "Apps", label: "Keep the pointer in games", kind: "bool", fallback: true,
-        hint: "While a Steam or Wine game or gamescope has the focus on a Tableau layout, the pointer can't leave its window, so a quick turn doesn't land on the window beside it. Leave the game with Super + arrows or Alt + Tab." },
+        hint: "While a Steam or Wine game or gamescope has the focus in the main spot of a Tableau layout, the pointer can't leave its window, so a quick turn doesn't land on the window beside it. Leave the game with Super + arrows or Alt + Tab." },
       { key: "confineApps", section: "Apps", label: "Keep the pointer in", kind: "tags", fallback: [], max: 64,
         presets: ["gamescope", "minecraft", "retroarch"],
         hint: "Other window classes the pointer stays inside while they have the focus. hyprctl clients shows the class." }
