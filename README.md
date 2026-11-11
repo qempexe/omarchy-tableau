@@ -101,7 +101,7 @@ the bar settings, or write `{ "id": "io.github.qempexe.tableau" }` into `bar` â†
 
 The live miniatures come from a small Hyprland plugin that Tableau builds for your
 Hyprland version the first time, and again after a Hyprland update. That needs
-`base-devel` (`sudo pacman -S --needed base-devel`). Without it, the thumbnail layouts
+the `base-devel` package group. Without it, the thumbnail layouts
 still work, with the other windows resized into their spots.
 
 ## Usage
