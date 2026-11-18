@@ -67,8 +67,16 @@ _G.hl = {
   is_key_down = function(key) return mock.keys[key] == true end,
   get_active_workspace = function() return workspaces[1] end,
   get_workspace_windows = function(sel)
+    mock.last_workspace_selector = sel
     local out = {}
-    for _, w in ipairs(windows) do if tostring(w.workspace.id) == tostring(sel) then out[#out + 1] = w end end
+    for _, w in ipairs(windows) do
+      local ws = w.workspace
+      if (type(sel) == "string" and sel:sub(1, 5) == "name:" and ws.name == sel:sub(6))
+        or (ws.special and sel == ws.name)
+        or tostring(ws.id) == tostring(sel) then
+        out[#out + 1] = w
+      end
+    end
     return out
   end,
   get_windows = function() return windows end,
