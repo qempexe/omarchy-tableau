@@ -1137,7 +1137,7 @@ register_layout("tableau-spread", { recalculate = guarded(spread_layout), layout
 -- Helpers for the Stage and Horizon window-slot model.
 
 local function selector(ws)
-  return ws.id > 0 and tostring(ws.id) or ("name:" .. ws.name)
+  return ws.id and ws.id > 0 and tostring(ws.id) or (ws.special and ws.name or ("name:" .. ws.name))
 end
 
 local function is_stage(ws)

@@ -76,6 +76,17 @@ def fresh_without_binds():
     return L, mock, state
 
 def main():
+
+    # The Quake console is a named special workspace; Hyprland can expose it
+    # without a numeric workspace id. Focus changes must query it by name.
+    L, mock, _ = fresh()
+    ws, wins = mock.workspace(1, "lua:tableau-portrait", 1)
+    ws.id, ws.name, ws.special = None, "special:qconsole", True
+    wins[1].workspace = ws
+    mock.fire("window.active", wins[1], CLICK)
+    assert mock.last_workspace_selector == "special:qconsole"
+
+
     for layout in ("lua:tableau-portrait", "lua:tableau-gallery-right", "lua:tableau-diptych-left", "lua:tableau-bento"):
         name = layout[len("lua:tableau-"):]
         L, mock, w = scene(layout)
